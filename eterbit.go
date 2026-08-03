@@ -50,6 +50,7 @@ func main() {
 	getBlockHashCmd := flag.NewFlagSet("getblockhash", flag.ExitOnError)
 	getBlockCmd := flag.NewFlagSet("getblock", flag.ExitOnError)
 	uptimeCmd := flag.NewFlagSet("uptime", flag.ExitOnError)
+	getNetTotalsCmd := flag.NewFlagSet("getnettotals", flag.ExitOnError)
 
 	// Define specific parameter bindings for individual command flags.
 	walletName := walletCreateCmd.String("name", "keystore.json", "Custom filename for the wallet")
@@ -97,6 +98,9 @@ func main() {
 	case "uptime":
 		uptimeCmd.Parse(os.Args[2:])
 		handleCheckUptime()
+	case "getnettotals":
+		getNetTotalsCmd.Parse(os.Args[2:])
+		handleGetNetTotals()
 	case "getblockhash":
 		// Verify that the required block index parameter has been adequately supplied prior to command parsing.
 		if len(os.Args) < 3 {
@@ -135,6 +139,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go peers")
 	fmt.Println("  go run eterbit.go fees")
 	fmt.Println("  go run eterbit.go uptime")
+	fmt.Println("  go run eterbit.go getnettotals")
 	fmt.Println("  go run eterbit.go getblockhash <index>")
 	fmt.Println("  go run eterbit.go getblock <hash>")
 	fmt.Println("================================================================================")
@@ -234,10 +239,6 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 	}
 
 	filePath := filepath.Join("eterbit_data", walletFile)
-	addrMiner, _, _, _ := wallet.LoadWalletCustom(filePath)
-	
-	// Initialize the blockchain ledger context using the derived wallet address.
-	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	
 	// Load the signing wallet credentials from disk for transaction authentication.
 	addrA, privKeyA, pubBytesA, err := wallet.LoadWalletCustom(filePath)
@@ -245,6 +246,9 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 		fmt.Printf("[CLI] Failed to load wallet from %s: %v\n", filePath, err)
 		return
 	}
+
+	// Initialize the blockchain ledger context using the derived wallet address.
+	ledger := node.InitializeLedger("eterbit_data", 3, addrA)
 
 	// Populate initial state balances for the sender account to ensure valid transaction validation.
 	ledger.State[addrA] = &node.AccountState{
@@ -300,6 +304,9 @@ func handleRunNode(port string, connectPeer string) {
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	server := p2p.NewServer(port)
+
+	// Register NetTotals HTTP endpoint handler on the P2P or default server mux if applicable
+	internal.RegisterNetTotalsHandler(server.Mux())
 
 	// Spawn a background worker routine to periodically dump connected peer information to disk.
 	go func() {
@@ -454,7 +461,7 @@ func handleCheckFees() {
 
 	// Render comprehensive fee metrics to the command-line interface.
 	fmt.Println("================================================================================")
-	fmt.Println("                    ETERBIT MEMPOOL FEE MARKET                  ")
+	fmt.Println("                     ETERBIT MEMPOOL FEE MARKET                 ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Pending Transactions in Mempool : %d\n", count)
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))
@@ -473,6 +480,13 @@ func handleCheckUptime() {
 	fmt.Println("================================================================")
 	fmt.Printf(" Uptime: %s\n", uptimeFormatted)
 	fmt.Println("================================================================")
+}
+
+// handleGetNetTotals retrieves and displays network traffic statistics (Bitcoin-like getnettotals).
+func handleGetNetTotals() {
+	totals := internal.GetNetTotals()
+	out, _ := json.MarshalIndent(totals, "", "  ")
+	fmt.Println(string(out))
 }
 
 // handleGetBlockHash retrieves and outputs the hexadecimal block hash corresponding to the specified numerical index.

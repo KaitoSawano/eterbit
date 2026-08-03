@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 
 	"eterbit/core"
@@ -43,15 +44,22 @@ type Server struct {
 	Address string
 	Peers   map[string]net.Conn
 	Mu      sync.Mutex
+	mux     *http.ServeMux
 }
 
 // NewServer initializes a new P2P network server instance.
 func NewServer(address string) *Server {
-	// Instantiate and return a new Server pointer with an initialized peer connection mapping.
+	mux := http.NewServeMux()
 	return &Server{
 		Address: address,
 		Peers:   make(map[string]net.Conn),
+		mux:     mux,
 	}
+}
+
+// Mux returns the internal HTTP ServeMux for registering RPC/API endpoints.
+func (s *Server) Mux() *http.ServeMux {
+	return s.mux
 }
 
 // StartListening binds to the specified TCP address and listens for incoming node connections.
