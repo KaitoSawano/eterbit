@@ -1,4 +1,4 @@
-Eterbit v0.01
+Eterbit v0.1.0
 
 Copyright (c) 2026 Eterbit Core.
 Copyright (c) 2026 AldianOkto (Subang, Indonesian). All rights reserved.
