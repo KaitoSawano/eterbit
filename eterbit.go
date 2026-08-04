@@ -33,8 +33,20 @@ import (
 	_ "github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
-// MempoolFile designates the absolute or relative file path utilized for persisting unconfirmed network transaction queues locally.
-const MempoolFile = "eterbit_data/mempool.json"
+// getDataDir returns the external global data directory (~/.eterbit) so that blockchain data 
+// and wallet.dat remain completely safe even if the project source folder is deleted or updated.
+func getDataDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "eterbit_data" // Fallback to local if home dir is inaccessible
+	}
+	dir := filepath.Join(homeDir, ".eterbit")
+	os.MkdirAll(dir, 0755)
+	return dir
+}
+
+// MempoolFile designates the absolute file path utilized for persisting unconfirmed network transaction queues externally.
+var MempoolFile = filepath.Join(getDataDir(), "mempool.json")
 
 // main serves as the primary entry point for the command-line interface application, parsing operational arguments and routing execution flows accordingly.
 func main() {
@@ -159,8 +171,8 @@ func printUsage() {
 
 // handleCreateWalletAccount provisions a new account address inside the centralized wallet.dat container.
 func handleCreateWalletAccount(label string) {
-	os.MkdirAll("eterbit_data", 0755)
-	filePath := filepath.Join("eterbit_data", "wallet.dat")
+	dataDir := getDataDir()
+	filePath := filepath.Join(dataDir, "wallet.dat")
 
 	// Generate and append a new account keypair inside wallet.dat
 	newAddr, err := wallet.GenerateNewAccount(filePath)
@@ -180,8 +192,8 @@ func handleCreateWalletAccount(label string) {
 
 // handleCheckBalance queries the persistent ledger database to enumerate all registered account balances and associated nonces.
 func handleCheckBalance() {
-	// Initialize the ledger state instance from storage utilizing default configuration parameters.
-	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_VIEWER")
+	// Initialize the ledger state instance from external storage utilizing default configuration parameters.
+	ledger := node.InitializeLedger(getDataDir(), 3, "SYSTEM_VIEWER")
 	fmt.Println("================================================================================")
 	fmt.Println(" REGISTERED ACCOUNT BALANCES IN LEVELDB")
 	fmt.Println("================================================================================")
@@ -201,19 +213,18 @@ func handleCheckBalance() {
 
 // saveMempoolToDisk serializes the active transaction pool collection and writes the resulting data structure directly to storage.
 func saveMempoolToDisk(mempool []*core.Transfer) {
-	// Ensure that the target directory exists before attempting to write mempool data.
-	os.MkdirAll("eterbit_data", 0755)
 	// Marshal the mempool transaction slice into indented JSON format.
 	data, _ := json.MarshalIndent(mempool, "", "  ")
 	// Write the serialized byte stream directly to the designated mempool file path.
-	os.WriteFile(MempoolFile, data, 0644)
+	os.WriteFile(filepath.Join(getDataDir(), "mempool.json"), data, 0644)
 }
 
 // loadMempoolFromDisk reads the serialized transaction pool dataset from disk and unmarshals it into memory.
 func loadMempoolFromDisk() []*core.Transfer {
 	var mempool []*core.Transfer
+	mempoolFilePath := filepath.Join(getDataDir(), "mempool.json")
 	// Read the raw byte content from the persistent mempool storage file.
-	data, err := os.ReadFile(MempoolFile)
+	data, err := os.ReadFile(mempoolFilePath)
 	if err != nil {
 		return mempool
 	}
@@ -230,7 +241,8 @@ func handleSendTx(recipient string, amount uint64, fee uint64, senderAddr string
 		return
 	}
 
-	filePath := filepath.Join("eterbit_data", "wallet.dat")
+	dataDir := getDataDir()
+	filePath := filepath.Join(dataDir, "wallet.dat")
 	
 	// Load the centralized multi-wallet container (wallet.dat).
 	wf, err := wallet.LoadWalletCustom(filePath)
@@ -264,7 +276,7 @@ func handleSendTx(recipient string, amount uint64, fee uint64, senderAddr string
 	}
 
 	// Initialize the blockchain ledger context using the derived wallet address.
-	ledger := node.InitializeLedger("eterbit_data", 3, selectedAccount.Address)
+	ledger := node.InitializeLedger(dataDir, 3, selectedAccount.Address)
 
 	// Populate initial state balances for the sender account to ensure valid transaction validation.
 	ledger.State[selectedAccount.Address] = &node.AccountState{
@@ -320,7 +332,8 @@ func handleRunNode(port string, connectPeer string) {
 		addrMiner = wf.Accounts[0].Address
 	}
 
-	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
+	dataDir := getDataDir()
+	ledger := node.InitializeLedger(dataDir, 3, addrMiner)
 	server := p2p.NewServer(port)
 
 	// Register NetTotals HTTP endpoint handler on the P2P server mux
@@ -332,8 +345,7 @@ func handleRunNode(port string, connectPeer string) {
 			time.Sleep(2 * time.Second)
 			peerList := server.GetPeerList()
 			data, _ := json.MarshalIndent(peerList, "", "  ")
-			os.MkdirAll("eterbit_data", 0755)
-			os.WriteFile("eterbit_data/peers.json", data, 0644)
+			os.WriteFile(filepath.Join(dataDir, "peers.json"), data, 0644)
 		}
 	}()
 
@@ -408,7 +420,8 @@ func handleManualMine(blocksCount int, targetAddress string) {
 
 	fmt.Printf("[CLI] Triggering Manual Block Mining (Target Address: %s)...\n", targetAddress)
 
-	ledger := node.InitializeLedger("eterbit_data", 3, targetAddress)
+	dataDir := getDataDir()
+	ledger := node.InitializeLedger(dataDir, 3, targetAddress)
 	
 	// Synchronize any pending mempool transactions stored on disk into the active ledger mempool queue.
 	diskMempool := loadMempoolFromDisk()
@@ -430,7 +443,7 @@ func handleManualMine(blocksCount int, targetAddress string) {
 // handleExploreBlockchain parses and displays structural blockchain blocks and metadata directly from physical storage.
 func handleExploreBlockchain() {
 	// Delegate blockchain inspection tasks to the core blockchain module implementation.
-	core.InspectBlockchain("eterbit_data")
+	core.InspectBlockchain(getDataDir())
 }
 
 // handleCheckPeers displays active connected peers list (Bitcoin-like getpeerinfo).
@@ -439,7 +452,7 @@ func handleCheckPeers() {
 	fmt.Println(" ETERBIT P2P NETWORK - PEER INFO (GETPEERINFO)")
 	fmt.Println("================================================================================")
 	
-	filePath := filepath.Join("eterbit_data", "peers.json")
+	filePath := filepath.Join(getDataDir(), "peers.json")
 	// Read the serialized peer list dataset generated by the active node background routine.
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -475,7 +488,7 @@ func handleCheckFees() {
 		addrMiner = wf.Accounts[0].Address
 	}
 
-	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
+	ledger := node.InitializeLedger(getDataDir(), 3, addrMiner)
 	
 	// Synchronize disk-based mempool records into memory for accurate fee market analysis.
 	diskMempool := loadMempoolFromDisk()
@@ -490,7 +503,7 @@ func handleCheckFees() {
 
 	// Render comprehensive fee metrics to the command-line interface.
 	fmt.Println("================================================================================")
-	fmt.Println("                        ETERBIT MEMPOOL FEE MARKET                      ")
+	fmt.Println("                       ETERBIT MEMPOOL FEE MARKET                ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Pending Transactions in Mempool : %d\n", count)
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))
@@ -528,7 +541,7 @@ func handleGetBlockHash(indexStr string) {
 		return
 	}
 
-	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_VIEWER")
+	ledger := node.InitializeLedger(getDataDir(), 3, "SYSTEM_VIEWER")
 	// Verify that the requested block index falls within the valid bounds of the local chain.
 	if int(index) >= len(ledger.Chain) {
 		fmt.Printf("[CLI] Block index #%d out of range (Total blocks: %d)\n", index, len(ledger.Chain))
@@ -543,7 +556,7 @@ func handleGetBlockHash(indexStr string) {
 
 // handleGetBlock retrieves and renders the complete structural block data in JSON format based on the provided target hash.
 func handleGetBlock(targetHash string) {
-	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_VIEWER")
+	ledger := node.InitializeLedger(getDataDir(), 3, "SYSTEM_VIEWER")
 	
 	var foundBlock *core.LedgerBlock = nil
 	// Search through the local blockchain chain to locate the block matching the target hash.
