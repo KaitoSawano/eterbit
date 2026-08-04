@@ -54,8 +54,9 @@ func formatCoin(amount uint64) float64 {
 
 // CalculateBlockReward calculates the block reward per block utilizing a halving mechanism.
 func CalculateBlockReward(blockIndex uint64) uint64 {
-	// Define the initial block reward allocation amount scaled to coin units.
-	initialReward := uint64(50) * CoinUnit
+	// Retrieve consensus parameters to synchronize the initial reward cleanly.
+	params := consensus.DefaultConsensus()
+	initialReward := params.BlockReward
 	halvingInterval := uint64(7850000)
 	
 	// Compute the total number of halving cycles elapsed based on the current block height index.
