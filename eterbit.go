@@ -73,7 +73,7 @@ func main() {
 	sendFee := sendCmd.Uint64("fee", 2, "Transaction fee")
 	sendSenderAddr := sendCmd.String("from", "", "Specific sender account address within wallet.dat")
 
-	nodePort := nodeCmd.String("port", ":19335", "P2P listening port for the node")
+	nodePort := nodeCmd.String("port", ":19333", "P2P listening port for the node")
 	nodeConnect := nodeCmd.String("connect", "", "Peer address to connect (e.g., localhost:19333)")
 
 	mineBlocks := mineCmd.Int("blocks", 1, "Number of blocks to generate")
