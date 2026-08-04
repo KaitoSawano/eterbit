@@ -97,8 +97,8 @@ func HandleCheckBalance() {
 
 // HandleCheckSupply queries the blockchain ledger and displays maximum supply and circulating minted coins.
 func HandleCheckSupply() {
-	// Define the fixed maximum coin supply limit updated to 785 million coins for Eterbit Core
-	const maxSupply uint64 = 785000000
+	// Define the fixed maximum coin supply limit updated to 785 million coins (raw uint64 with 8 decimals)
+	const maxSupply uint64 = 785000000 * 100000000
 	const rewardPerBlock uint64 = 5000000000 // 50 coins per block with 8 decimals precision
 
 	// Initialize the ledger instance to inspect total minted blocks
