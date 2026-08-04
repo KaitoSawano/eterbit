@@ -53,12 +53,12 @@ func main() {
 	getNetTotalsCmd := flag.NewFlagSet("getnettotals", flag.ExitOnError)
 
 	// Define specific parameter bindings for individual command flags.
-	walletName := walletCreateCmd.String("name", "keystore.json", "Custom filename for the wallet")
+	walletLabel := walletCreateCmd.String("label", "Default Account", "Label description for the new multi-wallet account")
 
 	sendRecipient := sendCmd.String("to", "", "Recipient destination address")
 	sendAmount := sendCmd.Uint64("amount", 0, "Transfer value amount")
 	sendFee := sendCmd.Uint64("fee", 2, "Transaction fee")
-	walletSource := sendCmd.String("wallet", "keystore.json", "Wallet filename to use")
+	sendSenderAddr := sendCmd.String("from", "", "Specific sender account address within wallet.dat")
 
 	nodePort := nodeCmd.String("port", ":8333", "P2P listening port for the node")
 	nodeConnect := nodeCmd.String("connect", "", "Peer address to connect (e.g., localhost:8333)")
@@ -73,13 +73,13 @@ func main() {
 	switch os.Args[1] {
 	case "create":
 		walletCreateCmd.Parse(os.Args[2:])
-		handleCreateWallet(*walletName)
+		handleCreateWalletAccount(*walletLabel)
 	case "balance":
 		balanceCmd.Parse(os.Args[2:])
 		handleCheckBalance()
 	case "send":
 		sendCmd.Parse(os.Args[2:])
-		handleSendTx(*sendRecipient, *sendAmount, *sendFee, *walletSource)
+		handleSendTx(*sendRecipient, *sendAmount, *sendFee, *sendSenderAddr)
 	case "node":
 		nodeCmd.Parse(os.Args[2:])
 		handleRunNode(*nodePort, *nodeConnect)
@@ -127,12 +127,12 @@ func main() {
 func printUsage() {
 	// Render comprehensive structural documentation regarding available console commands.
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER (BITCOIN-LIKE ARCHITECTURE)")
+	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER (BITCOIN-LIKE MULTI-WALLET ARCHITECTURE)")
 	fmt.Println("================================================================================")
 	fmt.Println("Available commands:")
-	fmt.Println("  go run eterbit.go create -name <file.json>")
+	fmt.Println("  go run eterbit.go create [-label <account_label>]")
 	fmt.Println("  go run eterbit.go balance")
-	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-wallet <file>]")
+	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-from <sender_addr>]")
 	fmt.Println("  go run eterbit.go node [--port :port] [--connect host:port]")
 	fmt.Println("  go run eterbit.go mine")
 	fmt.Println("  go run eterbit.go explorer")
@@ -145,39 +145,24 @@ func printUsage() {
 	fmt.Println("================================================================================")
 }
 
-// handleCreateWallet generates a new cryptographic wallet instance and persists its state securely to disk.
-func handleCreateWallet(filename string) {
-	// Ensure that the target directory structure exists on disk prior to file operations.
+// handleCreateWalletAccount provisions a new account address inside the centralized wallet.dat container.
+func handleCreateWalletAccount(label string) {
 	os.MkdirAll("eterbit_data", 0755)
-	filePath := filepath.Join("eterbit_data", filename)
+	filePath := filepath.Join("eterbit_data", "wallet.dat")
 
-	// Check if a wallet file already exists to prevent accidental overwriting of existing keys.
-	if _, err := os.Stat(filePath); err == nil {
-		fmt.Printf("[WALLET] Wallet file '%s' already exists!\n", filename)
-		return
-	}
-
-	// Invoke custom wallet creation logic to generate cryptographic keys and address strings.
-	addr, privKey, pubBytes, err := wallet.CreateOrLoadWalletCustom(filePath)
+	// Generate and append a new account keypair inside wallet.dat
+	newAddr, err := wallet.GenerateNewAccount(filePath)
 	if err != nil {
-		fmt.Printf("[WALLET] Failed: %v\n", err)
+		fmt.Printf("[WALLET] Failed to generate new account: %v\n", err)
 		return
 	}
 
-	// Encode public and private keys into hexadecimal format for storage serialization.
-	pubHex := hex.EncodeToString(pubBytes)
-	privBytes, _ := privKey.MarshalBinary()
-	privHex := hex.EncodeToString(privBytes)
-
-	// Persist the newly generated wallet parameters securely to the specified file path.
-	wallet.SaveWalletCustom(filePath, addr, pubHex, privHex)
-
-	// Output successful wallet generation details to standard output for operator confirmation.
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT NEW WALLET CREATED")
+	fmt.Println(" ETERBIT NEW WALLET ACCOUNT CREATED (WALLET.DAT)")
 	fmt.Println("================================================================================")
-	fmt.Printf(" Filename : %s\n", filePath)
-	fmt.Printf(" Address  : %s\n", addr)
+	fmt.Printf(" Filepath : %s\n", filePath)
+	fmt.Printf(" Label    : %s\n", label)
+	fmt.Printf(" Address  : %s\n", newAddr)
 	fmt.Println("--------------------------------------------------------------------------------")
 }
 
@@ -226,57 +211,76 @@ func loadMempoolFromDisk() []*core.Transfer {
 }
 
 // handleSendTx constructs, signs, and broadcasts a new value transfer transaction into the network mempool architecture.
-func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string) {
+func handleSendTx(recipient string, amount uint64, fee uint64, senderAddr string) {
 	// Validate that essential transfer parameters have been provided by the caller.
 	if recipient == "" || amount == 0 {
 		fmt.Println("[CLI] Incomplete arguments! Use -to and -amount.")
 		return
 	}
 
-	// Fallback to default keystore filename if no specific wallet file was provided.
-	if walletFile == "" {
-		walletFile = "keystore.json"
+	filePath := filepath.Join("eterbit_data", "wallet.dat")
+	
+	// Load the centralized multi-wallet container (wallet.dat).
+	wf, err := wallet.LoadWalletCustom(filePath)
+	if err != nil || wf == nil || len(wf.Accounts) == 0 {
+		fmt.Printf("[CLI] Failed to load wallet.dat container: %v\n", err)
+		return
 	}
 
-	filePath := filepath.Join("eterbit_data", walletFile)
-	
-	// Load the signing wallet credentials from disk for transaction authentication.
-	addrA, privKeyA, pubBytesA, err := wallet.LoadWalletCustom(filePath)
+	// Determine which account inside wallet.dat to use as the sender
+	var selectedAccount *wallet.Account
+	if senderAddr != "" {
+		for _, acc := range wf.Accounts {
+			if acc.Address == senderAddr {
+				selectedAccount = &acc
+				break
+			}
+		}
+		if selectedAccount == nil {
+			fmt.Printf("[CLI] Sender address %s not found in wallet.dat!\n", senderAddr)
+			return
+		}
+	} else {
+		// Default to the first account in wallet.dat if no sender address is specified
+		selectedAccount = &wf.Accounts[0]
+	}
+
+	privKeyPtr, pubBytes, err := wallet.GetPrivateKeyInstance(wf, selectedAccount.Address)
 	if err != nil {
-		fmt.Printf("[CLI] Failed to load wallet from %s: %v\n", filePath, err)
+		fmt.Printf("[CLI] Failed to load private key for address %s: %v\n", selectedAccount.Address, err)
 		return
 	}
 
 	// Initialize the blockchain ledger context using the derived wallet address.
-	ledger := node.InitializeLedger("eterbit_data", 3, addrA)
+	ledger := node.InitializeLedger("eterbit_data", 3, selectedAccount.Address)
 
 	// Populate initial state balances for the sender account to ensure valid transaction validation.
-	ledger.State[addrA] = &node.AccountState{
+	ledger.State[selectedAccount.Address] = &node.AccountState{
 		Balance: node.InitialAirdrop,
 		Nonce:   0,
 	}
 	
 	// Handle alternative address prefix variations for ledger state compatibility.
-	if len(addrA) > 4 && addrA[:4] == "etrb" {
-		ledger.State[addrA[4:]] = &node.AccountState{
+	if len(selectedAccount.Address) > 4 && selectedAccount.Address[:4] == "etrb" {
+		ledger.State[selectedAccount.Address[4:]] = &node.AccountState{
 			Balance: node.InitialAirdrop,
 			Nonce:   0,
 		}
 	} else {
-		ledger.State["etrb"+addrA] = &node.AccountState{
+		ledger.State["etrb"+selectedAccount.Address] = &node.AccountState{
 			Balance: node.InitialAirdrop,
 			Nonce:   0,
 		}
 	}
 
 	// Compute the current transaction nonce utilizing ledger state and temporal entropy.
-	currentNonce := ledger.State[addrA].Nonce + uint64(time.Now().UnixNano()%100000)
+	currentNonce := ledger.State[selectedAccount.Address].Nonce + uint64(time.Now().UnixNano()%100000)
 
 	// Output structural transaction construction details to the console interface.
-	fmt.Printf("[CLI] Constructing transaction from %s (via %s) to %s (Amount: %.8f, Fee: %.8f)...\n", addrA, walletFile, recipient, node.ToDecimal(amount), node.ToDecimal(fee))
+	fmt.Printf("[CLI] Constructing transaction from %s (wallet.dat) to %s (Amount: %.8f, Fee: %.8f)...\n", selectedAccount.Address, recipient, node.ToDecimal(amount), node.ToDecimal(fee))
 
 	// Instantiate and cryptographically sign the new transfer transaction structure.
-	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
+	tx := core.NewTransfer(privKeyPtr, pubBytes, recipient, amount, fee, currentNonce)
 	
 	// Append the newly created transaction into the local mempool storage file.
 	existingMempool := loadMempoolFromDisk()
@@ -295,17 +299,19 @@ func handleRunNode(port string, connectPeer string) {
 	// Record node initialization timestamp for daemon uptime tracking functionality.
 	internal.RecordStartTime()
 	
-	// Load default validator wallet credentials required for block reward distribution.
-	addrMiner, _, _, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
-	if err != nil {
-		fmt.Printf("[NODE] Failed to load default miner wallet: %v\n", err)
-		return
+	// Load default validator miner wallet credentials from wallet.dat for block reward distribution.
+	wf, err := wallet.LoadWallet()
+	var addrMiner string
+	if err != nil || wf == nil || len(wf.Accounts) == 0 {
+		addrMiner = "SYSTEM_MINER"
+	} else {
+		addrMiner = wf.Accounts[0].Address
 	}
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	server := p2p.NewServer(port)
 
-	// Register NetTotals HTTP endpoint handler on the P2P or default server mux if applicable
+	// Register NetTotals HTTP endpoint handler on the P2P server mux
 	internal.RegisterNetTotalsHandler(server.Mux())
 
 	// Spawn a background worker routine to periodically dump connected peer information to disk.
@@ -380,10 +386,12 @@ func handleRunNode(port string, connectPeer string) {
 func handleManualMine() {
 	fmt.Println("[CLI] Triggering Manual Block Mining...")
 	
-	// Attempt to load default miner wallet credentials, utilizing a fallback identifier if unavailable.
-	addrMiner, _, _, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
-	if err != nil {
+	wf, err := wallet.LoadWallet()
+	var addrMiner string
+	if err != nil || wf == nil || len(wf.Accounts) == 0 {
 		addrMiner = "SYSTEM_MINER"
+	} else {
+		addrMiner = wf.Accounts[0].Address
 	}
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
@@ -441,9 +449,12 @@ func handleCheckPeers() {
 
 // handleCheckFees displays fee market statistics derived from the active mempool dataset.
 func handleCheckFees() {
-	addrMiner, _, _, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
-	if err != nil {
+	wf, err := wallet.LoadWallet()
+	var addrMiner string
+	if err != nil || wf == nil || len(wf.Accounts) == 0 {
 		addrMiner = "SYSTEM_VIEWER"
+	} else {
+		addrMiner = wf.Accounts[0].Address
 	}
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
@@ -540,7 +551,7 @@ func handleGetBlock(targetHash string) {
 
 	// Output the complete structural block JSON payload to the console interface.
 	fmt.Println("================================================================")
-	fmt.Println("                 ETERBIT BLOCK JSON DATA                        ")
+	fmt.Println("                  ETERBIT BLOCK JSON DATA                       ")
 	fmt.Println("================================================================")
 	fmt.Println(string(jsonData))
 	fmt.Println("================================================================")
