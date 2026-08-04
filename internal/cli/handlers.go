@@ -108,8 +108,8 @@ func HandleCheckSupply() {
 	// Calculate total coins minted across all blocks in the chain (including block rewards and genesis)
 	for _, block := range ledger.Chain {
 		for _, tx := range block.Transfers {
-			if tx.Sender == "SYSTEM_REWARD" || tx.Sender == "GENESIS" {
-				circulatingSupply += tx.Amount
+			if tx.From == "SYSTEM_REWARD" || tx.From == "GENESIS" {
+				circulatingSupply += tx.Value
 			}
 		}
 	}
