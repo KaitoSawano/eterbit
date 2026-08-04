@@ -30,7 +30,7 @@ const (
 	HalvingInterval    uint64 = 7850000            // Strict Halving Block Interval
 	DefaultPort        int    = 19333              // Default P2P Network Port
 	BaseDifficulty     uint64 = 3                  // Minimum/Base Target Difficulty Bits
-	TargetBlockTimeSec int64  = 15                 // Target block time in seconds (Ethereum style ~15s)
+	TargetBlockTimeSec int64  = 35                 // Target block time in seconds (Ethereum style ~15s)
 	AddressPrefix      string = "etrb"             // Immutable Wallet Address Prefix
 )
 
