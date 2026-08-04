@@ -117,9 +117,9 @@ func CreateOrLoadWalletCustom(filePath string) (*WalletFile, error) {
 			return nil, err
 		}
 
-		// Ensure consensus package is loaded and use address directly from crypto module
-		_ = consensus.DefaultConsensus()
-		addr := crypto.PubkeyToAddress(pubBytes)
+		// Enforce correct consensus address prefix ("etrb_") matching validator requirements
+		params := consensus.DefaultConsensus()
+		addr := params.AddressPrefix + "_" + crypto.PubkeyToAddress(pubBytes)
 		pubHex := hex.EncodeToString(pubBytes)
 		privHex := hex.EncodeToString(privBytes)
 
@@ -165,9 +165,9 @@ func GenerateNewAccount(filePath string) (string, error) {
 		return "", err
 	}
 
-	// Ensure consensus package is loaded and use address directly from crypto module
-	_ = consensus.DefaultConsensus()
-	addr := crypto.PubkeyToAddress(pubBytes)
+	// Enforce correct consensus address prefix ("etrb_") matching validator requirements
+	params := consensus.DefaultConsensus()
+	addr := params.AddressPrefix + "_" + crypto.PubkeyToAddress(pubBytes)
 	pubHex := hex.EncodeToString(pubBytes)
 	privHex := hex.EncodeToString(privBytes)
 
