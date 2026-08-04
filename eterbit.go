@@ -63,6 +63,9 @@ func main() {
 	nodePort := nodeCmd.String("port", ":8333", "P2P listening port for the node")
 	nodeConnect := nodeCmd.String("connect", "", "Peer address to connect (e.g., localhost:8333)")
 
+	mineBlocks := mineCmd.Int("blocks", 1, "Number of blocks to generate")
+	mineAddress := mineCmd.String("address", "", "Target destination address for block reward (Bitcoin-like generatetoaddress)")
+
 	// Validate whether adequate command-line arguments have been provided by the executing operator.
 	if len(os.Args) < 2 {
 		printUsage()
@@ -88,7 +91,7 @@ func main() {
 		handleExploreBlockchain()
 	case "mine":
 		mineCmd.Parse(os.Args[2:])
-		handleManualMine()
+		handleManualMine(*mineBlocks, *mineAddress)
 	case "peers":
 		peersCmd.Parse(os.Args[2:])
 		handleCheckPeers()
@@ -134,7 +137,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go balance")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-from <sender_addr>]")
 	fmt.Println("  go run eterbit.go node [--port :port] [--connect host:port]")
-	fmt.Println("  go run eterbit.go mine")
+	fmt.Println("  go run eterbit.go mine [-blocks <num>] [-address <addr>]")
 	fmt.Println("  go run eterbit.go explorer")
 	fmt.Println("  go run eterbit.go peers")
 	fmt.Println("  go run eterbit.go fees")
@@ -382,19 +385,21 @@ func handleRunNode(port string, connectPeer string) {
 	select {}
 }
 
-// handleManualMine executes a single manual iteration of the Proof-of-Work block mining procedure using accumulated mempool records.
-func handleManualMine() {
-	fmt.Println("[CLI] Triggering Manual Block Mining...")
-	
+// handleManualMine executes iterative Proof-of-Work block mining targeting a specific reward address (generatetoaddress style).
+func handleManualMine(blocksCount int, targetAddress string) {
 	wf, err := wallet.LoadWallet()
-	var addrMiner string
-	if err != nil || wf == nil || len(wf.Accounts) == 0 {
-		addrMiner = "SYSTEM_MINER"
-	} else {
-		addrMiner = wf.Accounts[0].Address
+	
+	if targetAddress == "" {
+		if err != nil || wf == nil || len(wf.Accounts) == 0 {
+			targetAddress = "SYSTEM_MINER"
+		} else {
+			targetAddress = wf.Accounts[0].Address
+		}
 	}
 
-	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
+	fmt.Printf("[CLI] Triggering Manual Block Mining (Target Address: %s)...\n", targetAddress)
+
+	ledger := node.InitializeLedger("eterbit_data", 3, targetAddress)
 	
 	// Synchronize any pending mempool transactions stored on disk into the active ledger mempool queue.
 	diskMempool := loadMempoolFromDisk()
@@ -404,9 +409,13 @@ func handleManualMine() {
 		ledger.Mu.Unlock()
 	}
 
-	// Execute the core Proof-of-Work block mining algorithm and clear the processed mempool.
-	ledger.MineBlock()
+	for i := 0; i < blocksCount; i++ {
+		fmt.Printf("[NODE] Mining block %d of %d...\n", i+1, blocksCount)
+		ledger.MineBlock()
+	}
+	
 	saveMempoolToDisk([]*core.Transfer{})
+	fmt.Println("[CLI] Mining completed successfully!")
 }
 
 // handleExploreBlockchain parses and displays structural blockchain blocks and metadata directly from physical storage.
