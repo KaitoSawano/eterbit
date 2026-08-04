@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -64,6 +65,7 @@ func main() {
 	getBlockCmd := flag.NewFlagSet("getblock", flag.ExitOnError)
 	uptimeCmd := flag.NewFlagSet("uptime", flag.ExitOnError)
 	getNetTotalsCmd := flag.NewFlagSet("getnettotals", flag.ExitOnError)
+	addNodeCmd := flag.NewFlagSet("addnode", flag.ExitOnError)
 
 	// Define specific parameter bindings for individual command flags.
 	walletLabel := walletCreateCmd.String("label", "Default Account", "Label description for the new multi-wallet account")
@@ -78,6 +80,8 @@ func main() {
 
 	mineBlocks := mineCmd.Int("blocks", 1, "Number of blocks to generate")
 	mineAddress := mineCmd.String("address", "", "Target destination address for block reward (Bitcoin-like generatetoaddress)")
+
+	addNodeTarget := addNodeCmd.String("to", "", "Target peer address to add (e.g., localhost:19333)")
 
 	// Validate whether adequate command-line arguments have been provided by the executing operator.
 	if len(os.Args) < 2 {
@@ -112,6 +116,13 @@ func main() {
 		}
 		miningCmd.Parse(os.Args[3:])
 		handleManualMine(1, os.Args[2])
+	case "addnode":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: go run eterbit.go addnode <host:port>")
+			os.Exit(1)
+		}
+		addNodeCmd.Parse(os.Args[2:])
+		handleAddNode(*addNodeTarget)
 	case "peers":
 		peersCmd.Parse(os.Args[2:])
 		handleCheckPeers()
@@ -157,6 +168,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go balance")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-from <sender_addr>]")
 	fmt.Println("  go run eterbit.go node [--port :port] [--connect host:port]")
+	fmt.Println("  go run eterbit.go addnode <host:port>")
 	fmt.Println("  go run eterbit.go mine [-blocks <num>] [-address <addr>]")
 	fmt.Println("  go run eterbit.go mining <target_address>")
 	fmt.Println("  go run eterbit.go explorer")
@@ -407,6 +419,41 @@ func handleRunNode(port string, connectPeer string) {
 	
 	// Block execution indefinitely to maintain the live node daemon process.
 	select {}
+}
+
+// handleAddNode allows manual addition of a peer address to the addrman database (Bitcoin addnode style).
+func handleAddNode(peerAddr string) {
+	if peerAddr == "" {
+		if len(os.Args) > 2 {
+			peerAddr = os.Args[2]
+		} else {
+			fmt.Println("[CLI] Error: Target peer address is required. Usage: go run eterbit.go addnode <host:port>")
+			return
+		}
+	}
+
+	dataDir := getDataDir()
+
+	host, portStr, err := net.SplitHostPort(peerAddr)
+	if err != nil {
+		fmt.Printf("[CLI] Invalid address format '%s'. Please use host:port (e.g., 127.0.0.1:19333)\n", peerAddr)
+		return
+	}
+
+	var port int
+	fmt.Sscanf(portStr, "%d", &port)
+
+	am := p2p.NewAddrManager(dataDir)
+	am.AddAddress(host, port)
+
+	fmt.Println("================================================================================")
+	fmt.Println(" ETERBIT P2P NETWORK - ADDNODE MANUAL REGISTRATION")
+	fmt.Println("================================================================================")
+	fmt.Printf(" Successfully added peer to addrman database: %s:%d\n", host, port)
+	fmt.Printf(" Persisted to : %s/peers_addrman.json\n", dataDir)
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println(" The running node will pick up and connect to this peer automatically.")
+	fmt.Println("================================================================================")
 }
 
 // handleManualMine executes iterative Proof-of-Work block mining targeting a specific reward address (generatetoaddress style).
