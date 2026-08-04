@@ -41,10 +41,13 @@ func ValidateBlockConsensus(block *LedgerBlock, prevBlock *LedgerBlock, currentT
 
 	// 2. Enforce strict Bitcoin-grade Address Prefix validation (Consensus Integrity)
 	// Memastikan penambang wajib menggunakan format prefix yang sah (misal: "etrb_")
-	params := consensus.DefaultConsensus()
-	requiredPrefix := params.AddressPrefix + "_"
-	if !strings.HasPrefix(block.MinerAddress, requiredPrefix) {
-		return fmt.Errorf("CONSENSUS REJECTION: Invalid miner address prefix! Expected prefix '%s', got '%s'", requiredPrefix, block.MinerAddress)
+	// Kecuali untuk block genesis awal ("SYSTEM_GENESIS")
+	if block.Index > 0 && block.Miner != "SYSTEM_GENESIS" {
+		params := consensus.DefaultConsensus()
+		requiredPrefix := params.AddressPrefix + "_"
+		if !strings.HasPrefix(block.Miner, requiredPrefix) {
+			return fmt.Errorf("CONSENSUS REJECTION: Invalid miner address prefix! Expected prefix '%s', got '%s'", requiredPrefix, block.Miner)
+		}
 	}
 
 	// 3. Enforce absolute cryptographic Proof-of-Work (PoW) target verification.
