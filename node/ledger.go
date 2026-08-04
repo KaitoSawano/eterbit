@@ -57,6 +57,15 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 	return consensus.CalculateBlockReward(blockIndex)
 }
 
+// GetTotalCirculatingSupply menghitung total koin yang sudah beredar di seluruh blok yang ada secara akumulatif.
+func (lc *LedgerCore) GetTotalCirculatingSupply() uint64 {
+	var totalSupply uint64 = 0
+	for _, block := range lc.Chain {
+		totalSupply += block.Reward
+	}
+	return totalSupply
+}
+
 // InitializeLedger initializes or loads the local ledger database state from the specified storage path.
 func InitializeLedger(dbPath string, initialDifficulty uint32, minerAddr string) *LedgerCore {
 	// Initialize a new persistent storage database instance at the designated directory path.
@@ -291,9 +300,9 @@ func (lc *LedgerCore) MineBlock() {
 			acc.Nonce++
 
 			if _, ok := lc.State[tx.Recipient]; !ok {
-				lc.State[tx.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
+				lc.State[lc.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
 			} else {
-				lc.State[tx.Recipient].Balance += tx.Value
+				lc.State[lc.Recipient].Balance += tx.Value
 			}
 
 			feeTotal += tx.Fee
@@ -307,7 +316,19 @@ func (lc *LedgerCore) MineBlock() {
 	lc.Mu.Unlock()
 
 	nextIndex := parent.Index + 1
+	
+	// --- IMMUTABLE MAX SUPPLY VALIDATION ENFORCEMENT ---
+	currentSupply := lc.GetTotalCirculatingSupply()
 	exactReward := CalculateBlockReward(nextIndex)
+
+	if currentSupply >= consensus.MaxSupply {
+		exactReward = 0 // Circulating supply has reached the hard cap limit. Zero reward!
+		fmt.Println("[WARNING] MaxSupply hard cap reached! Block reward is now 0.")
+	} else if currentSupply+exactReward > consensus.MaxSupply {
+		exactReward = consensus.MaxSupply - currentSupply // Trim reward to fit remaining supply quota exactly
+	}
+	// ----------------------------------------------------
+
 	currentTime := time.Now().Unix()
 
 	// Implement Ethereum-style Dynamic Difficulty Adjustment based on elapsed time from parent block
@@ -334,7 +355,7 @@ func (lc *LedgerCore) MineBlock() {
 
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
-	newBlock.Reward = exactReward // Enforce correct halving reward value.
+	newBlock.Reward = exactReward // Enforce correct calculated reward value respecting max supply.
 
 	lc.Mu.Lock()
 	// Append the successfully mined block to the local chain array and commit it to storage.
@@ -354,6 +375,6 @@ func (lc *LedgerCore) MineBlock() {
 
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %.8f, Fee: %.8f, Nonce: %d, Time: %v)\n", newBlock.Index, formatCoin(newBlock.Reward), formatCoin(feeTotal), newBlock.Nonce, duration)
-	fmt.Printf("[CHAIN] Total Blocks: %d | Transactions Processed: %d\n", len(lc.Chain), len(validTx))
+	fmt.Printf("[CHAIN] Total Blocks: %d | Circulating Supply: %.8f / %.8f\n", len(lc.Chain), formatCoin(lc.GetTotalCirculatingSupply()), formatCoin(consensus.MaxSupply))
 	fmt.Println("--------------------------------------------------------------------------------")
 }
