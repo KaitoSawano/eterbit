@@ -58,7 +58,7 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 	return consensus.CalculateBlockReward(blockIndex)
 }
 
-// GetTotalCirculatingSupply menghitung total koin yang sudah beredar di seluruh blok yang ada secara akumulatif.
+// GetTotalCirculatingSupply calculates the total cumulative coins circulating across all existing blocks.
 func (lc *LedgerCore) GetTotalCirculatingSupply() uint64 {
 	var totalSupply uint64 = 0
 	for _, block := range lc.Chain {
@@ -214,9 +214,9 @@ func (lc *LedgerCore) SpawnGenesis() {
 
 // AddToMempool validates and inserts a transaction payload into the pending mempool queue with Fee Market priority sorting.
 func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
-	// --- VALIDASI KETAT PREFIX ALAMAT (Bitcoin-Grade Protection) ---
+	// --- STRICT ADDRESS PREFIX VALIDATION (Bitcoin-Grade Protection) ---
 	params := consensus.DefaultConsensus()
-	requiredPrefix := params.AddressPrefix + "_"
+	requiredPrefix := params.AddressPrefix // Pure prefix without underscore (e.g., "etrb")
 	if !strings.HasPrefix(tx.Recipient, requiredPrefix) {
 		fmt.Printf("[MEMPOOL REJECTION] Invalid recipient address prefix: '%s'. Network strictly requires '%s'\n", tx.Recipient, requiredPrefix)
 		return false
