@@ -22,19 +22,33 @@ import (
 	"math/big"
 )
 
+// Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
+const (
+	CoinUnit        uint64 = 100000000          // 8 Decimals precision factor
+	MaxSupply       uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
+	BlockReward     uint64 = 50 * CoinUnit      // Initial Mining Reward: 50 Coins per Block
+	HalvingInterval uint64 = 7850000            // Strict Halving Block Interval
+	DefaultPort     int    = 19666              // Default P2P Network Port
+	DifficultyBits  uint64 = 3                  // Target Difficulty Prefix/Bits
+)
+
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit blockchain.
 type ConsensusParameters struct {
-	DifficultyBits uint64 // Target difficulty prefix/bits for Proof-of-Work
-	BlockReward    uint64 // Initial mining reward per block (with 8 decimals precision)
-	MaxSupply      uint64 // Maximum cap for token issuance (with 8 decimals precision)
+	DifficultyBits  uint64 // Target difficulty prefix/bits for Proof-of-Work
+	BlockReward     uint64 // Initial mining reward per block (with 8 decimals precision)
+	MaxSupply       uint64 // Maximum cap for token issuance (with 8 decimals precision)
+	HalvingInterval uint64 // Interval blocks for halving
+	DefaultPort     int    // Hardcoded network port
 }
 
 // DefaultConsensus returns the standard operational consensus rules for Eterbit.
 func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
-		DifficultyBits: 3,
-		BlockReward:    50 * 100000000,        // 50 coins
-		MaxSupply:      785000000 * 100000000, // 785 million coins
+		DifficultyBits:  DifficultyBits,
+		BlockReward:     BlockReward,
+		MaxSupply:       MaxSupply,
+		HalvingInterval: HalvingInterval,
+		DefaultPort:     DefaultPort,
 	}
 }
 
