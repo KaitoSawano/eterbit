@@ -36,7 +36,7 @@ func Hash256(data []byte) []byte {
 // PubkeyToAddress derives a custom post-quantum network address string from a Dilithium public key bytes slice.
 func PubkeyToAddress(pubBytes []byte) string {
 	rawHex := hex.EncodeToString(pubBytes[:14])
-	return "etrb" + rawHex
+	return "etrb_" + rawHex
 }
 
 // Sign delegates signature generation to the dilithium3 module.
