@@ -9,13 +9,14 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"eterbit/internal/consensus"
 )
 
 // ValidateBlockConsensus rigorously evaluates incoming block structures against 
 // immutable cryptographic consensus parameters. 
 // Enforces strict Bitcoin-grade protocol compliance: rejects any unauthorized 
-// reward manipulation, max supply breaches, or invalid proof-of-work proofs.
+// reward manipulation, max supply breaches, invalid proof-of-work proofs, or malformed address prefixes.
 func ValidateBlockConsensus(block *LedgerBlock, prevBlock *LedgerBlock, currentTotalSupply uint64) error {
 	// 1. Validate sequential block height index progression and chronological integrity.
 	if prevBlock != nil {
@@ -38,14 +39,22 @@ func ValidateBlockConsensus(block *LedgerBlock, prevBlock *LedgerBlock, currentT
 		}
 	}
 
-	// 2. Enforce absolute cryptographic Proof-of-Work (PoW) target verification.
+	// 2. Enforce strict Bitcoin-grade Address Prefix validation (Consensus Integrity)
+	// Memastikan penambang wajib menggunakan format prefix yang sah (misal: "etrb_")
+	params := consensus.DefaultConsensus()
+	requiredPrefix := params.AddressPrefix + "_"
+	if !strings.HasPrefix(block.MinerAddress, requiredPrefix) {
+		return fmt.Errorf("CONSENSUS REJECTION: Invalid miner address prefix! Expected prefix '%s', got '%s'", requiredPrefix, block.MinerAddress)
+	}
+
+	// 3. Enforce absolute cryptographic Proof-of-Work (PoW) target verification.
 	hashStr := hex.EncodeToString(block.Hash)
 	// Evaluate leading zero-bit constraints against the active target difficulty level.
 	if !consensus.ValidatePoW(hashStr, uint64(block.Difficulty)) {
 		return fmt.Errorf("CONSENSUS ERROR: Block header hash fails to satisfy target difficulty bits")
 	}
 
-	// 3. Execute precise macroeconomic validation: Block reward and immutable Max Supply enforcement.
+	// 4. Execute precise macroeconomic validation: Block reward and immutable Max Supply enforcement.
 	expectedReward := consensus.CalculateBlockReward(block.Index)
 	
 	// Terminate coin issuance completely if cumulative circulating supply has reached the hard-coded maximum cap.
