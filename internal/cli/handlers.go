@@ -95,6 +95,40 @@ func HandleCheckBalance() {
 	fmt.Println("================================================================================")
 }
 
+// HandleCheckSupply queries the blockchain ledger and displays maximum supply and circulating minted coins.
+func HandleCheckSupply() {
+	// Define the fixed maximum coin supply limit updated to 785 million coins for Eterbit Core
+	const maxSupply uint64 = 785000000
+
+	// Initialize the ledger instance to inspect total minted blocks and rewards
+	ledger := node.InitializeLedger(GetDataDir(), 3, "SYSTEM_VIEWER")
+	
+	var circulatingSupply uint64 = 0
+	
+	// Calculate total coins minted across all blocks in the chain (including block rewards and genesis)
+	for _, block := range ledger.Chain {
+		for _, tx := range block.Transfers {
+			if tx.Sender == "SYSTEM_REWARD" || tx.Sender == "GENESIS" {
+				circulatingSupply += tx.Amount
+			}
+		}
+	}
+
+	// Render the supply metrics report to standard output
+	fmt.Println("================================================================================")
+	fmt.Println("                   ETERBIT COIN SUPPLY STATISTICS                               ")
+	fmt.Println("================================================================================")
+	fmt.Printf(" Max Supply         : %.8f Coins\n", node.ToDecimal(maxSupply))
+	fmt.Printf(" Circulating Supply : %.8f Coins\n", node.ToDecimal(circulatingSupply))
+	if maxSupply > circulatingSupply {
+		remaining := maxSupply - circulatingSupply
+		fmt.Printf(" Remaining to Mine  : %.8f Coins\n", node.ToDecimal(remaining))
+	} else {
+		fmt.Println(" Remaining to Mine  : 0.00000000 Coins (Fully Minted)")
+	}
+	fmt.Println("================================================================================")
+}
+
 // HandleSendTx constructs, signs, and broadcasts a new value transfer transaction to the local mempool storage.
 func HandleSendTx(recipient string, amount uint64, fee uint64, senderAddr string) {
 	if recipient == "" || amount == 0 {
@@ -146,7 +180,7 @@ func HandleSendTx(recipient string, amount uint64, fee uint64, senderAddr string
 	fmt.Printf("[MEMPOOL] Transaction broadcasted! ID: %s...\n", tx.ComputeID()[:16])
 }
 
-// HandleAddNode allows manual addition of a peer address to the addrman database (Bitcoin addnode style).
+// HandleAddNode allows manual addition of a peer address to the addrman database.
 func HandleAddNode(peerAddr string) {
 	if peerAddr == "" {
 		if len(os.Args) > 2 {
@@ -214,10 +248,10 @@ func HandleExploreBlockchain() {
 	core.InspectBlockchain(GetDataDir())
 }
 
-// HandleCheckPeers displays the active connected peers list (Bitcoin-like getpeerinfo).
+// HandleCheckPeers displays the active connected peers list.
 func HandleCheckPeers() {
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT P2P NETWORK - PEER INFO (GETPEERINFO)")
+	fmt.Println(" ETERBIT P2P NETWORK - PEER INFO")
 	fmt.Println("================================================================================")
 	filePath := filepath.Join(GetDataDir(), "peers.json")
 	data, err := os.ReadFile(filePath)
@@ -260,7 +294,7 @@ func HandleCheckFees() {
 
 	count, highest, avg := ledger.GetMempoolFeeStats()
 	fmt.Println("================================================================================")
-	fmt.Println("                        ETERBIT MEMPOOL FEE MARKET                 ")
+	fmt.Println("                         ETERBIT MEMPOOL FEE MARKET                             ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Pending Transactions in Mempool : %d\n", count)
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))
@@ -278,7 +312,7 @@ func HandleCheckUptime() {
 	fmt.Println("================================================================")
 }
 
-// HandleGetNetTotals retrieves and displays network traffic statistics (Bitcoin-like getnettotals).
+// HandleGetNetTotals retrieves and displays network traffic statistics.
 func HandleGetNetTotals() {
 	totals := internal.GetNetTotals()
 	out, _ := json.MarshalIndent(totals, "", "  ")

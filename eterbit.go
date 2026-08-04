@@ -32,6 +32,7 @@ func main() {
 	// Initialize distinct command-line flag sets for various administrative and operational subcommands.
 	walletCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
 	balanceCmd := flag.NewFlagSet("balance", flag.ExitOnError)
+	supplyCmd := flag.NewFlagSet("supply", flag.ExitOnError)
 	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
 	explorerCmd := flag.NewFlagSet("explorer", flag.ExitOnError)
@@ -57,7 +58,7 @@ func main() {
 	nodeConnect := nodeCmd.String("connect", "", "Peer address to connect (e.g., localhost:19333)")
 
 	mineBlocks := mineCmd.Int("blocks", 1, "Number of blocks to generate")
-	mineAddress := mineCmd.String("address", "", "Target destination address for block reward (Bitcoin-like generatetoaddress)")
+	mineAddress := mineCmd.String("address", "", "Target destination address for block reward (generatetoaddress style)")
 
 	addNodeTarget := addNodeCmd.String("to", "", "Target peer address to add (e.g., localhost:19333)")
 
@@ -77,6 +78,10 @@ func main() {
 		// Parse balance check options and invoke the modular CLI balance lookup handler.
 		balanceCmd.Parse(os.Args[2:])
 		cli.HandleCheckBalance()
+	case "supply":
+		// Parse supply metrics options and invoke the circulating and max supply inspection handler.
+		supplyCmd.Parse(os.Args[2:])
+		cli.HandleCheckSupply()
 	case "send":
 		// Parse transaction transfer parameters and invoke the modular CLI transaction dispatch handler.
 		sendCmd.Parse(os.Args[2:])
@@ -152,11 +157,12 @@ func main() {
 func printUsage() {
 	// Render comprehensive structural documentation regarding available console commands.
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER (BITCOIN-LIKE MULTI-WALLET ARCHITECTURE)")
+	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER (MULTI-WALLET ARCHITECTURE)")
 	fmt.Println("================================================================================")
 	fmt.Println("Available commands:")
 	fmt.Println("  go run eterbit.go create [-label <account_label>]")
 	fmt.Println("  go run eterbit.go balance")
+	fmt.Println("  go run eterbit.go supply")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-from <sender_addr>]")
 	fmt.Println("  go run eterbit.go node [--port :port] [--connect host:port]")
 	fmt.Println("  go run eterbit.go addnode <host:port>")
