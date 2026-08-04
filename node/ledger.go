@@ -48,16 +48,17 @@ type LedgerCore struct {
 
 // formatCoin converts raw integer units to a floating-point representation for display.
 func formatCoin(amount uint64) float64 {
-	// Divide the raw integer smallest unit value by the coin unit multiplier to obtain the standard float representation.
-	return float64(amount) / float64(CoinUnit)
+	params := consensus.DefaultConsensus()
+	// Use CoinUnit retrieved directly from the hardcoded consensus parameters.
+	return float64(amount) / float64(consensus.CoinUnit)
 }
 
 // CalculateBlockReward calculates the block reward per block utilizing a halving mechanism.
 func CalculateBlockReward(blockIndex uint64) uint64 {
-	// Retrieve consensus parameters to synchronize the initial reward cleanly.
+	// Retrieve consensus parameters to synchronize initial reward and strict halving interval.
 	params := consensus.DefaultConsensus()
 	initialReward := params.BlockReward
-	halvingInterval := uint64(7850000)
+	halvingInterval := params.HalvingInterval
 	
 	// Compute the total number of halving cycles elapsed based on the current block height index.
 	halvings := blockIndex / halvingInterval
@@ -137,7 +138,7 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 	for _, tx := range block.Transfers {
 		sender := hex.EncodeToString(tx.SenderPubKey[:16])
 		if _, ok := lc.State[sender]; !ok {
-			lc.State[sender] = &AccountState{Balance: InitialAirdrop, Nonce: 0}
+			lc.State[sender] = &AccountState{Balance: 0, Nonce: 0}
 		}
 		
 		// Deduct the transfer value and transaction fee from the sender account balance if sufficient funds exist.
@@ -209,12 +210,10 @@ func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
 	sender := hex.EncodeToString(tx.SenderPubKey[:16])
 	acc, exists := lc.State[sender]
 	
-	// Initialize account states if missing, validating balance availability against initial airdrop parameters.
+	// Initialize account states if missing.
 	if !exists {
-		lc.State[sender] = &AccountState{Balance: InitialAirdrop, Nonce: tx.Nonce}
+		lc.State[sender] = &AccountState{Balance: 0, Nonce: tx.Nonce}
 		acc = lc.State[sender]
-	} else if acc.Balance < (tx.Value + tx.Fee) {
-		acc.Balance = InitialAirdrop
 	}
 
 	if tx.Nonce != acc.Nonce {
@@ -295,7 +294,7 @@ func (lc *LedgerCore) MineBlock() {
 			sender := hex.EncodeToString(tx.SenderPubKey[:16])
 			
 			if _, ok := lc.State[sender]; !ok {
-				lc.State[sender] = &AccountState{Balance: InitialAirdrop, Nonce: 0}
+				lc.State[sender] = &AccountState{Balance: 0, Nonce: 0}
 			}
 			acc := lc.State[sender]
 
@@ -324,11 +323,16 @@ func (lc *LedgerCore) MineBlock() {
 
 	nextIndex := parent.Index + 1
 	exactReward := CalculateBlockReward(nextIndex)
+	currentTime := time.Now().Unix()
+
+	// Implement Ethereum-style Dynamic Difficulty Adjustment based on elapsed time from parent block
+	calculatedDiff := consensus.CalculateNextDifficulty(parent.Timestamp, currentTime, uint64(parent.Difficulty))
+	lc.Engine.TargetDifficulty = uint32(calculatedDiff)
 
 	// Construct the new ledger block container structure with current parameters.
 	newBlock := &core.LedgerBlock{
 		Index:      nextIndex,
-		Timestamp:  time.Now().Unix(),
+		Timestamp:  currentTime,
 		PrevHash:   parent.Hash,
 		Transfers:  validTx,
 		Miner:      lc.MinerAddress,
@@ -336,7 +340,7 @@ func (lc *LedgerCore) MineBlock() {
 		Reward:     exactReward,
 	}
 
-	fmt.Printf("[MINER] Mining Block #%d with %d transactions (Difficulty: %d)...\n", newBlock.Index, len(validTx), newBlock.Difficulty)
+	fmt.Printf("[MINER] Mining Block #%d with %d transactions (Dynamic Difficulty: %d)...\n", newBlock.Index, len(validTx), newBlock.Difficulty)
 	
 	startTime := time.Now()
 	// Execute the CPU-intensive proof-of-work mining algorithm to discover a valid nonce and block hash.
@@ -345,7 +349,7 @@ func (lc *LedgerCore) MineBlock() {
 
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
-	newBlock.Reward = exactReward // Enforce the correct halving reward value to prevent accidental overrides during mining.
+	newBlock.Reward = exactReward // Enforce correct halving reward value.
 
 	lc.Mu.Lock()
 	// Append the successfully mined block to the local chain array and commit it to storage.
