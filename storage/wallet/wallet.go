@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 
 	"eterbit/crypto"
-	"eterbit/internal/consensus"
 	"github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
@@ -117,9 +116,8 @@ func CreateOrLoadWalletCustom(filePath string) (*WalletFile, error) {
 			return nil, err
 		}
 
-		// Enforce correct consensus address prefix ("etrb_") matching validator requirements
-		params := consensus.DefaultConsensus()
-		addr := params.AddressPrefix + "_" + crypto.PubkeyToAddress(pubBytes)
+		// Derive clean address directly from crypto module without redundant prefixes
+		addr := crypto.PubkeyToAddress(pubBytes)
 		pubHex := hex.EncodeToString(pubBytes)
 		privHex := hex.EncodeToString(privBytes)
 
@@ -165,9 +163,8 @@ func GenerateNewAccount(filePath string) (string, error) {
 		return "", err
 	}
 
-	// Enforce correct consensus address prefix ("etrb_") matching validator requirements
-	params := consensus.DefaultConsensus()
-	addr := params.AddressPrefix + "_" + crypto.PubkeyToAddress(pubBytes)
+	// Derive clean address directly from crypto module without redundant prefixes
+	addr := crypto.PubkeyToAddress(pubBytes)
 	pubHex := hex.EncodeToString(pubBytes)
 	privHex := hex.EncodeToString(privBytes)
 
