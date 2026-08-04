@@ -45,6 +45,7 @@ func main() {
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
 	explorerCmd := flag.NewFlagSet("explorer", flag.ExitOnError)
 	mineCmd := flag.NewFlagSet("mine", flag.ExitOnError)
+	miningCmd := flag.NewFlagSet("mining", flag.ExitOnError)
 	peersCmd := flag.NewFlagSet("peers", flag.ExitOnError)
 	feesCmd := flag.NewFlagSet("fees", flag.ExitOnError)
 	getBlockHashCmd := flag.NewFlagSet("getblockhash", flag.ExitOnError)
@@ -92,6 +93,13 @@ func main() {
 	case "mine":
 		mineCmd.Parse(os.Args[2:])
 		handleManualMine(*mineBlocks, *mineAddress)
+	case "mining":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: go run eterbit.go mining <target_address>")
+			os.Exit(1)
+		}
+		miningCmd.Parse(os.Args[3:])
+		handleManualMine(1, os.Args[2])
 	case "peers":
 		peersCmd.Parse(os.Args[2:])
 		handleCheckPeers()
@@ -138,6 +146,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-from <sender_addr>]")
 	fmt.Println("  go run eterbit.go node [--port :port] [--connect host:port]")
 	fmt.Println("  go run eterbit.go mine [-blocks <num>] [-address <addr>]")
+	fmt.Println("  go run eterbit.go mining <target_address>")
 	fmt.Println("  go run eterbit.go explorer")
 	fmt.Println("  go run eterbit.go peers")
 	fmt.Println("  go run eterbit.go fees")
