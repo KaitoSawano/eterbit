@@ -339,13 +339,20 @@ func handleRunNode(port string, connectPeer string) {
 	// Register NetTotals HTTP endpoint handler on the P2P server mux
 	internal.RegisterNetTotalsHandler(server.Mux())
 
-	// Spawn a background worker routine to periodically dump connected peer information to disk.
+	// Spawn a background worker routine to periodically dump connected peer information & addrman discovered addresses to disk.
 	go func() {
 		for {
 			time.Sleep(2 * time.Second)
 			peerList := server.GetPeerList()
 			data, _ := json.MarshalIndent(peerList, "", "  ")
 			os.WriteFile(filepath.Join(dataDir, "peers.json"), data, 0644)
+			
+			// If Server implements AddrManager inspection, persist or log active discovered addresses here as well.
+			if server.AddrManager != nil {
+				knownAddrs := server.AddrManager.GetKnownAddresses()
+				addrData, _ := json.MarshalIndent(knownAddrs, "", "  ")
+				os.WriteFile(filepath.Join(dataDir, "addrman_peers.json"), addrData, 0644)
+			}
 		}
 	}()
 
@@ -499,7 +506,7 @@ func handleCheckFees() {
 
 	// Render comprehensive fee metrics to the command-line interface.
 	fmt.Println("================================================================================")
-	fmt.Println("                        ETERBIT MEMPOOL FEE MARKET                ")
+	fmt.Println("                        ETERBIT MEMPOOL FEE MARKET                 ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Pending Transactions in Mempool : %d\n", count)
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))

@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"eterbit/core"
@@ -41,19 +43,33 @@ type Envelope struct {
 
 // Server represents the P2P networking node manager.
 type Server struct {
-	Address string
-	Peers   map[string]net.Conn
-	Mu      sync.Mutex
-	mux     *http.ServeMux
+	Address     string
+	Peers       map[string]net.Conn
+	Mu          sync.Mutex
+	mux         *http.ServeMux
+	AddrManager *AddrManager
 }
 
-// NewServer initializes a new P2P network server instance.
+// getDataDirInternal resolves the local node configuration path for persistent storage.
+func getDataDirInternal() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "eterbit_data"
+	}
+	dir := filepath.Join(homeDir, ".eterbit")
+	os.MkdirAll(dir, 0755)
+	return dir
+}
+
+// NewServer initializes a new P2P network server instance along with the address manager.
 func NewServer(address string) *Server {
 	mux := http.NewServeMux()
+	dataDir := getDataDirInternal()
 	return &Server{
-		Address: address,
-		Peers:   make(map[string]net.Conn),
-		mux:     mux,
+		Address:     address,
+		Peers:       make(map[string]net.Conn),
+		mux:         mux,
+		AddrManager: NewAddrManager(dataDir),
 	}
 }
 
@@ -79,6 +95,14 @@ func (s *Server) StartListening(onBlockReceived func(*core.LedgerBlock), onTxRec
 		if err != nil {
 			continue
 		}
+		
+		// Automatically record incoming peer remote address into AddrManager if possible.
+		if remoteAddr := conn.RemoteAddr(); remoteAddr != nil {
+			if tcpAddr, ok := remoteAddr.(*net.TCPAddr); ok {
+				s.AddrManager.AddAddress(tcpAddr.IP.String(), tcpAddr.Port)
+			}
+		}
+
 		// Spawn a dedicated background goroutine to handle communication for each accepted connection.
 		go s.handleConnection(conn, onBlockReceived, onTxReceived)
 	}
@@ -153,6 +177,15 @@ func (s *Server) ConnectToPeer(peerAddr string) error {
 	// Store the established connection inside the active peer tracking map.
 	s.Peers[peerAddr] = conn
 	s.Mu.Unlock()
+
+	// Parse host and port to register into AddrManager database
+	if host, portStr, err := net.SplitHostPort(peerAddr); err == nil {
+		var port int
+		fmt.Sscanf(portStr, "%d", &port)
+		if s.AddrManager != nil {
+			s.AddrManager.AddAddress(host, port)
+		}
+	}
 
 	fmt.Printf("[P2P] Successfully connected to remote peer: %s\n", peerAddr)
 	return nil
