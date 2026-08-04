@@ -28,7 +28,7 @@ const (
 	MaxSupply       uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
 	BlockReward     uint64 = 50 * CoinUnit      // Initial Mining Reward: 50 Coins per Block
 	HalvingInterval uint64 = 7850000            // Strict Halving Block Interval
-	DefaultPort     int    = 19666              // Default P2P Network Port
+	DefaultPort     int    = 19333              // Default P2P Network Port
 	DifficultyBits  uint64 = 3                  // Target Difficulty Prefix/Bits
 )
 
