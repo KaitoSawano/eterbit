@@ -490,7 +490,7 @@ func handleCheckFees() {
 
 	// Render comprehensive fee metrics to the command-line interface.
 	fmt.Println("================================================================================")
-	fmt.Println("                     ETERBIT MEMPOOL FEE MARKET                 ")
+	fmt.Println("                        ETERBIT MEMPOOL FEE MARKET                      ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Pending Transactions in Mempool : %d\n", count)
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))
