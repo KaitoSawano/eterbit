@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -213,6 +214,15 @@ func (lc *LedgerCore) SpawnGenesis() {
 
 // AddToMempool validates and inserts a transaction payload into the pending mempool queue with Fee Market priority sorting.
 func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
+	// --- VALIDASI KETAT PREFIX ALAMAT (Bitcoin-Grade Protection) ---
+	params := consensus.DefaultConsensus()
+	requiredPrefix := params.AddressPrefix + "_"
+	if !strings.HasPrefix(tx.Recipient, requiredPrefix) {
+		fmt.Printf("[MEMPOOL REJECTION] Invalid recipient address prefix: '%s'. Network strictly requires '%s'\n", tx.Recipient, requiredPrefix)
+		return false
+	}
+	// -----------------------------------------------------------------
+
 	lc.Mu.Lock()
 	defer lc.Mu.Unlock()
 
