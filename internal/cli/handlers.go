@@ -116,7 +116,7 @@ func HandleCheckSupply() {
 
 	// Render the supply metrics report to standard output
 	fmt.Println("================================================================================")
-	fmt.Println("                   ETERBIT COIN SUPPLY STATISTICS                               ")
+	fmt.Println("                     ETERBIT COIN SUPPLY STATISTICS                             ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Max Supply         : %.8f Coins\n", node.ToDecimal(maxSupply))
 	fmt.Printf(" Circulating Supply : %.8f Coins\n", node.ToDecimal(circulatingSupply))
