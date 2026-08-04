@@ -38,7 +38,17 @@ type WalletFile struct {
 	Accounts []Account `json:"accounts"`
 }
 
-const walletDir = "eterbit_data"
+// getDataDir returns the external global data directory (~/.eterbit) so that wallet.dat 
+// remains completely safe even if the project source folder is deleted or updated.
+func getDataDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "eterbit_data" // Fallback to local if home dir is inaccessible
+	}
+	dir := filepath.Join(homeDir, ".eterbit")
+	os.MkdirAll(dir, 0755)
+	return dir
+}
 
 // SaveWalletCustom serializes and commits a multi-wallet file container to a custom file path.
 func SaveWalletCustom(filePath string, wf *WalletFile) error {
@@ -69,21 +79,21 @@ func LoadWalletCustom(filePath string) (*WalletFile, error) {
 	return &wf, nil
 }
 
-// SaveWallet serializes the multi-wallet container to the default wallet.dat file.
+// SaveWallet serializes the multi-wallet container to the default wallet.dat file inside ~/.eterbit.
 func SaveWallet(wf *WalletFile) error {
-	return SaveWalletCustom(filepath.Join(walletDir, "wallet.dat"), wf)
+	return SaveWalletCustom(filepath.Join(getDataDir(), "wallet.dat"), wf)
 }
 
-// LoadWallet attempts to read and deserialize the default localized wallet.dat file from disk storage.
+// LoadWallet attempts to read and deserialize the default localized wallet.dat file from disk storage inside ~/.eterbit.
 func LoadWallet() (*WalletFile, error) {
-	filePath := filepath.Join(walletDir, "wallet.dat")
+	filePath := filepath.Join(getDataDir(), "wallet.dat")
 	return LoadWalletCustom(filePath)
 }
 
 // CreateOrLoadWallet checks for an existing default wallet.dat file. If found, it loads it;
 // otherwise, it provisions a new centralized multi-wallet file containing an initial post-quantum keypair.
 func CreateOrLoadWallet() (*WalletFile, error) {
-	return CreateOrLoadWalletCustom(filepath.Join(walletDir, "wallet.dat"))
+	return CreateOrLoadWalletCustom(filepath.Join(getDataDir(), "wallet.dat"))
 }
 
 // CreateOrLoadWalletCustom provisions or loads a multi-wallet container at a custom file path, adding a new account if empty.
