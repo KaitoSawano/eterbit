@@ -26,6 +26,7 @@ import (
 
 	"eterbit/core"
 	"eterbit/internal"
+	"eterbit/internal/consensus"
 	"eterbit/internal/p2p"
 	"eterbit/node"
 	"eterbit/storage/wallet"
@@ -129,6 +130,16 @@ func HandleSendTx(recipient string, amount uint64, fee uint64, senderAddr string
 		fmt.Println("[CLI] Incomplete arguments! Use -to and -amount.")
 		return
 	}
+
+	// --- STRICT ADDRESS PREFIX VALIDATION ---
+	params := consensus.DefaultConsensus()
+	requiredPrefix := params.AddressPrefix + "_"
+	if len(recipient) < len(requiredPrefix) || recipient[:len(requiredPrefix)] != requiredPrefix {
+		fmt.Printf("[CLI REJECTION] Invalid recipient address prefix: '%s'. Network strictly requires '%s'\n", recipient, requiredPrefix)
+		return
+	}
+	// ----------------------------------------
+
 	dataDir := GetDataDir()
 	filePath := filepath.Join(dataDir, "wallet.dat")
 	wf, err := wallet.LoadWalletCustom(filePath)
