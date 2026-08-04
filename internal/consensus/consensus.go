@@ -24,12 +24,14 @@ import (
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
 const (
-	CoinUnit        uint64 = 100000000          // 8 Decimals precision factor
-	MaxSupply       uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
-	BlockReward     uint64 = 50 * CoinUnit      // Initial Mining Reward: 50 Coins per Block
-	HalvingInterval uint64 = 7850000            // Strict Halving Block Interval
-	DefaultPort     int    = 19333              // Default P2P Network Port
-	DifficultyBits  uint64 = 3                  // Target Difficulty Prefix/Bits
+	CoinUnit           uint64 = 100000000          // 8 Decimals precision factor
+	MaxSupply          uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
+	BlockReward        uint64 = 50 * CoinUnit      // Initial Mining Reward: 50 Coins per Block
+	HalvingInterval    uint64 = 7850000            // Strict Halving Block Interval
+	DefaultPort        int    = 19333              // Default P2P Network Port
+	BaseDifficulty     uint64 = 3                  // Minimum/Base Target Difficulty Bits
+	TargetBlockTimeSec int64  = 15                 // Target block time in seconds (Ethereum style ~15s)
+	AddressPrefix      string = "etrb"             // Immutable Wallet Address Prefix
 )
 
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit blockchain.
@@ -39,17 +41,47 @@ type ConsensusParameters struct {
 	MaxSupply       uint64 // Maximum cap for token issuance (with 8 decimals precision)
 	HalvingInterval uint64 // Interval blocks for halving
 	DefaultPort     int    // Hardcoded network port
+	AddressPrefix   string // Hardcoded wallet address prefix
 }
 
 // DefaultConsensus returns the standard operational consensus rules for Eterbit.
 func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
-		DifficultyBits:  DifficultyBits,
+		DifficultyBits:  BaseDifficulty,
 		BlockReward:     BlockReward,
 		MaxSupply:       MaxSupply,
 		HalvingInterval: HalvingInterval,
 		DefaultPort:     DefaultPort,
+		AddressPrefix:   AddressPrefix,
 	}
+}
+
+// CalculateNextDifficulty implements an Ethereum-style dynamic difficulty adjustment
+// based on the time taken to mine the previous block compared to the TargetBlockTimeSec.
+func CalculateNextDifficulty(prevBlockTimestamp int64, currentBlockTimestamp int64, prevDifficulty uint64) uint64 {
+	if prevBlockTimestamp == 0 || currentBlockTimestamp <= prevBlockTimestamp {
+		if prevDifficulty < BaseDifficulty {
+			return BaseDifficulty
+		}
+		return prevDifficulty
+	}
+
+	timeElapsed := currentBlockTimestamp - prevBlockTimestamp
+	var newDifficulty uint64 = prevDifficulty
+
+	if timeElapsed < TargetBlockTimeSec {
+		newDifficulty = prevDifficulty + 1
+	} else if timeElapsed > TargetBlockTimeSec*2 {
+		if prevDifficulty > BaseDifficulty {
+			newDifficulty = prevDifficulty - 1
+		}
+	}
+
+	if newDifficulty < BaseDifficulty {
+		return BaseDifficulty
+	}
+
+	return newDifficulty
 }
 
 // ValidatePoW verifies whether a given block header hash satisfies the target difficulty requirement.
