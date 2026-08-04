@@ -25,8 +25,6 @@ import (
 )
 
 // CoinUnit defines an 8-decimal scaling factor retrieved directly from consensus parameters.
-var consensusParams = consensus.DefaultConsensus()
-
 const CoinUnit = consensus.CoinUnit
 
 const MaxEterbitSupply uint64 = consensus.MaxSupply / consensus.CoinUnit // Aligns with MaxSupply specified in internal/consensus
@@ -44,21 +42,9 @@ type LedgerBlock struct {
 	Reward     uint64      `json:"reward"`
 }
 
-// GetBlockReward dynamically computes the block reward using hardcoded consensus parameters to maintain 8-decimal accuracy.
+// GetBlockReward dynamically computes the block reward using the centralized consensus package.
 func GetBlockReward(blockHeight uint64) uint64 {
-	// Retrieve absolute consensus parameters to synchronize initial reward and strict halving interval.
-	initialReward := consensusParams.BlockReward
-	halvingInterval := consensusParams.HalvingInterval
-
-	halvings := blockHeight / halvingInterval
-
-	// Prevent integer overflow or underflow by capping the maximum halving bitwise shifts at 64.
-	if halvings >= 64 {
-		return 0
-	}
-
-	// Apply bitwise right-shift operations to reduce the initial reward by half for each elapsed interval.
-	return initialReward >> halvings
+	return consensus.CalculateBlockReward(blockHeight)
 }
 
 // ConsensusEngine coordinates the proof-of-work mining process, hash target difficulty evaluation, and block validation parameters.

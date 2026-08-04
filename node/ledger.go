@@ -48,28 +48,13 @@ type LedgerCore struct {
 
 // formatCoin converts raw integer units to a floating-point representation for display.
 func formatCoin(amount uint64) float64 {
-	params := consensus.DefaultConsensus()
-	// Use CoinUnit retrieved directly from the hardcoded consensus parameters.
+	// Use CoinUnit retrieved directly from the centralized consensus parameters.
 	return float64(amount) / float64(consensus.CoinUnit)
 }
 
-// CalculateBlockReward calculates the block reward per block utilizing a halving mechanism.
+// CalculateBlockReward delegates to the centralized consensus calculation engine.
 func CalculateBlockReward(blockIndex uint64) uint64 {
-	// Retrieve consensus parameters to synchronize initial reward and strict halving interval.
-	params := consensus.DefaultConsensus()
-	initialReward := params.BlockReward
-	halvingInterval := params.HalvingInterval
-	
-	// Compute the total number of halving cycles elapsed based on the current block height index.
-	halvings := blockIndex / halvingInterval
-	
-	// Cap the maximum halving shifts to prevent integer underflow or bitwise overflow.
-	if halvings >= 64 {
-		return 0
-	}
-	
-	// Apply bitwise right-shift operations to reduce the initial reward by half for each elapsed interval.
-	return initialReward >> halvings
+	return consensus.CalculateBlockReward(blockIndex)
 }
 
 // InitializeLedger initializes or loads the local ledger database state from the specified storage path.
