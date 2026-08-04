@@ -66,6 +66,24 @@ func (lc *LedgerCore) GetTotalCirculatingSupply() uint64 {
 	return totalSupply
 }
 
+// VerifyConsensusIntegrity performs a cryptographic and macroeconomic check against the genesis block 
+// to ensure local consensus parameters have not been unlawfully altered after storage initialization.
+func (lc *LedgerCore) VerifyConsensusIntegrity() {
+	if len(lc.Chain) == 0 {
+		return
+	}
+	genesis := lc.Chain[0]
+	expectedGenesisReward := CalculateBlockReward(0)
+	
+	if genesis.Reward != expectedGenesisReward {
+		panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] DATABASE/CONSENSUS MISMATCH DETECTED!\n"+
+			"The immutable macroeconomic rules (MaxSupply/Reward) have been illegally modified!\n"+
+			"Stored Genesis Reward: %d | Current Code Genesis Reward: %d\n"+
+			"Node execution halted immediately to preserve network consensus integrity.",
+			genesis.Reward, expectedGenesisReward))
+	}
+}
+
 // InitializeLedger initializes or loads the local ledger database state from the specified storage path.
 func InitializeLedger(dbPath string, initialDifficulty uint32, minerAddr string) *LedgerCore {
 	// Initialize a new persistent storage database instance at the designated directory path.
@@ -123,6 +141,9 @@ func (lc *LedgerCore) LoadFromDisk() bool {
 			lc.RebuildState(&block)
 		}
 	}
+	
+	// Execute rigid startup integrity checks against unauthorized rule changes.
+	lc.VerifyConsensusIntegrity()
 	return len(lc.Chain) > 0
 }
 
@@ -300,9 +321,9 @@ func (lc *LedgerCore) MineBlock() {
 			acc.Nonce++
 
 			if _, ok := lc.State[tx.Recipient]; !ok {
-				lc.State[lc.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
+				lc.State[tx.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
 			} else {
-				lc.State[lc.Recipient].Balance += tx.Value
+				lc.State[tx.Recipient].Balance += tx.Value
 			}
 
 			feeTotal += tx.Fee
@@ -356,6 +377,12 @@ func (lc *LedgerCore) MineBlock() {
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
 	newBlock.Reward = exactReward // Enforce correct calculated reward value respecting max supply.
+
+	// --- RIGID CONSENSUS VALIDATION PIPELINE ---
+	if err := core.ValidateBlockConsensus(newBlock, parent, currentSupply); err != nil {
+		panic(fmt.Sprintf("[CRITICAL CONSENSUS VIOLATION] Generated block failed strict validation: %v", err))
+	}
+	// -------------------------------------------
 
 	lc.Mu.Lock()
 	// Append the successfully mined block to the local chain array and commit it to storage.

@@ -77,9 +77,8 @@ func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byt
 
 // Mine executes an iterative proof-of-work search loop, testing candidate nonces until a hash meeting the target difficulty is discovered.
 func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
-	// Jangan menimpa b.Reward secara paksa di sini! 
-	// Biarkan menggunakan b.Reward yang sudah dihitung dan divalidasi oleh LedgerCore (MaxSupply protection).
-	// Jika reward belum di-set sama sekali oleh pemanggil, baru gunakan kalkulasi standar.
+	// Preserve the immutable block reward configured and validated by LedgerCore to enforce hard MaxSupply caps.
+	// Fall back to standard block reward calculation exclusively if uninitialized outside genesis bounds.
 	if b.Reward == 0 && b.Index > 0 {
 		b.Reward = GetBlockReward(b.Index)
 	}
@@ -94,6 +93,7 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 		hasher.Write(data)
 		hash := hasher.Sum(nil)
 
+		// Evaluate generated hash against active consensus difficulty target constraints.
 		if ce.validateHash(hash) {
 			return nonce, hash
 		}
