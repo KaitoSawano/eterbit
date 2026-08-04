@@ -25,16 +25,16 @@ import (
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit blockchain.
 type ConsensusParameters struct {
 	DifficultyBits uint64 // Target difficulty prefix/bits for Proof-of-Work
-	BlockReward    uint64 // Initial mining reward per block (e.g., 50 coins)
-	MaxSupply      uint64 // Maximum cap for token issuance
+	BlockReward    uint64 // Initial mining reward per block (with 8 decimals precision)
+	MaxSupply      uint64 // Maximum cap for token issuance (with 8 decimals precision)
 }
 
 // DefaultConsensus returns the standard operational consensus rules for Eterbit.
 func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
 		DifficultyBits: 3,
-		BlockReward:    50,
-		MaxSupply:      785000000, // Adjusting to Eterbit parameters
+		BlockReward:    50 * 100000000,        // 50 coins
+		MaxSupply:      785000000 * 100000000, // 785 million coins
 	}
 }
 
