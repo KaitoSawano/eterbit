@@ -23,10 +23,10 @@ import (
 
 // DefaultHardcodedSeeds defines the list of official or community-backed bootstrap seed nodes for Eterbit Core.
 var DefaultHardcodedSeeds = []string{
-	"seed1.eterbit.org:19666",
-	"seed2.eterbit.org:19666",
-	"fallback.eterbit.network:19666",
-	"127.0.0.1:8333",
+	"seed1.eterbit.org:19333",
+	"seed2.eterbit.org:19333",
+	"fallback.eterbit.network:19333",
+	"127.0.0.1:19333",
 }
 
 // DnsSeedDomains defines the list of DNS seed domains for dynamic peer discovery (BIP 155 style).
@@ -74,7 +74,7 @@ func (s *Server) AutoDiscoverAndConnect(customConnect string) {
 			}
 
 			for _, ip := range ips {
-				peerAddr := fmt.Sprintf("%s:19666", ip.String())
+				peerAddr := fmt.Sprintf("%s:19333", ip.String())
 				fmt.Printf("[P2P-SEED] Discovered peer via DNS lookup: %s\n", peerAddr)
 				go func(target string) {
 					_ = s.ConnectToPeer(target)
