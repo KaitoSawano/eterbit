@@ -373,12 +373,8 @@ func handleRunNode(port string, connectPeer string) {
 		}
 	}()
 
-	// Establish an outgoing connection to a specified peer node if the connection flag was provided.
-	if connectPeer != "" {
-		if err := server.ConnectToPeer(connectPeer); err != nil {
-			fmt.Printf("[P2P] Failed to connect to peer %s: %v\n", connectPeer, err)
-		}
-	}
+	// Automatically discover peers via Hardcoded Seeds and DNS Seeds (BIP 155 style), or fallback to manual override.
+	server.AutoDiscoverAndConnect(connectPeer)
 
 	// Launch a continuous mining loop daemon to process pending transactions from the mempool.
 	go func() {
@@ -503,7 +499,7 @@ func handleCheckFees() {
 
 	// Render comprehensive fee metrics to the command-line interface.
 	fmt.Println("================================================================================")
-	fmt.Println("                       ETERBIT MEMPOOL FEE MARKET                ")
+	fmt.Println("                        ETERBIT MEMPOOL FEE MARKET                ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Pending Transactions in Mempool : %d\n", count)
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))
