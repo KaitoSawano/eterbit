@@ -99,7 +99,7 @@ func HandleCheckBalance() {
 func HandleCheckSupply() {
 	// Define the fixed maximum coin supply limit updated to 785 million coins for Eterbit Core
 	const maxSupply uint64 = 785000000
-	const rewardPerBlock uint64 = 50_00000000 // 50 coins per block with 8 decimals precision
+	const rewardPerBlock uint64 = 5000000000 // 50 coins per block with 8 decimals precision
 
 	// Initialize the ledger instance to inspect total minted blocks
 	ledger := node.InitializeLedger(GetDataDir(), 3, "SYSTEM_VIEWER")
