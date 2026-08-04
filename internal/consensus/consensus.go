@@ -30,7 +30,7 @@ const (
 	HalvingInterval    uint64 = 7850000            // Strict Halving Block Interval
 	DefaultPort        int    = 19333              // Default P2P Network Port
 	BaseDifficulty     uint64 = 3                  // Minimum/Base Target Difficulty Bits
-	TargetBlockTimeSec int64  = 35                 // Target block time in seconds (Ethereum style ~15s)
+	TargetBlockTimeSec int64  = 35                 // Target block time in seconds
 	AddressPrefix      string = "etrb"             // Immutable Wallet Address Prefix
 )
 
@@ -54,6 +54,15 @@ func DefaultConsensus() *ConsensusParameters {
 		DefaultPort:     DefaultPort,
 		AddressPrefix:   AddressPrefix,
 	}
+}
+
+// CalculateBlockReward dynamically computes the block reward based on the hardcoded halving interval.
+func CalculateBlockReward(blockIndex uint64) uint64 {
+	halvings := blockIndex / HalvingInterval
+	if halvings >= 64 {
+		return 0
+	}
+	return BlockReward >> halvings
 }
 
 // CalculateNextDifficulty implements an Ethereum-style dynamic difficulty adjustment

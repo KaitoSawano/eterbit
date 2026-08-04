@@ -24,32 +24,31 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// CoinUnit defines an 8-decimal scaling factor consistent across all node operations.
-const CoinUnit = uint64(100000000)
-
-// Retrieve the maximum total coin supply limit from centralized consensus parameters.
+// CoinUnit defines an 8-decimal scaling factor retrieved directly from consensus parameters.
 var consensusParams = consensus.DefaultConsensus()
 
-const MaxEterbitSupply uint64 = 785000000 // Aligns with MaxSupply specified in internal/consensus
+const CoinUnit = consensus.CoinUnit
+
+const MaxEterbitSupply uint64 = consensus.MaxSupply / consensus.CoinUnit // Aligns with MaxSupply specified in internal/consensus
 
 // LedgerBlock represents the core structural block entity containing transactional ledger data, cryptographic hashes, and consensus metadata.
 type LedgerBlock struct {
-	Index      uint64     `json:"index"`
-	Timestamp  int64      `json:"timestamp"`
-	PrevHash   []byte     `json:"prev_hash"`
-	Hash       []byte     `json:"hash"`
+	Index      uint64      `json:"index"`
+	Timestamp  int64       `json:"timestamp"`
+	PrevHash   []byte      `json:"prev_hash"`
+	Hash       []byte      `json:"hash"`
 	Transfers  []*Transfer `json:"transfers"`
-	Miner      string     `json:"miner"`
-	Nonce      uint64     `json:"nonce"`
-	Difficulty uint32     `json:"difficulty"`
-	Reward     uint64     `json:"reward"`
+	Miner      string      `json:"miner"`
+	Nonce      uint64      `json:"nonce"`
+	Difficulty uint32      `json:"difficulty"`
+	Reward     uint64      `json:"reward"`
 }
 
-// GetBlockReward dynamically computes the block reward per block and multiplies it by CoinUnit to maintain 8-decimal accuracy.
+// GetBlockReward dynamically computes the block reward using hardcoded consensus parameters to maintain 8-decimal accuracy.
 func GetBlockReward(blockHeight uint64) uint64 {
-	// Multiply the base block reward by CoinUnit to convert it into the smallest fractional integer units (e.g., 50 * 100,000,000).
-	initialReward := consensusParams.BlockReward * CoinUnit
-	halvingInterval := uint64(7850000) // Halving interval configuration aligned to 7,850,000 blocks
+	// Retrieve absolute consensus parameters to synchronize initial reward and strict halving interval.
+	initialReward := consensusParams.BlockReward
+	halvingInterval := consensusParams.HalvingInterval
 
 	halvings := blockHeight / halvingInterval
 
