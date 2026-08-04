@@ -25,131 +25,164 @@ import (
 	"github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
-// WalletData defines the structural schema for serializing cryptographic keypairs and address mappings.
-type WalletData struct {
+// Account defines the structural schema for a single cryptographic keypair within the multi-wallet container.
+type Account struct {
 	Address    string `json:"address"`
 	PublicKey  string `json:"public_key"`
 	PrivateKey string `json:"private_key"`
 }
 
+// WalletFile defines the centralized multi-wallet structural schema containing multiple accounts (Bitcoin-like wallet.dat style).
+type WalletFile struct {
+	Version  int       `json:"version"`
+	Accounts []Account `json:"accounts"`
+}
+
 const walletDir = "eterbit_data"
 
-// SaveWalletCustom serializes wallet credential parameters and commits them to a custom file path.
-func SaveWalletCustom(filePath, addr, pubHex, privHex string) error {
-	// Extract the directory path portion from the target file path specification.
+// SaveWalletCustom serializes and commits a multi-wallet file container to a custom file path.
+func SaveWalletCustom(filePath string, wf *WalletFile) error {
 	dir := filepath.Dir(filePath)
-	
-	// Ensure that all parent directories leading to the destination file path are created with proper permissions.
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
-	// Construct the wallet data structure containing the address and hex-encoded key representations.
-	w := WalletData{
+	data, err := json.MarshalIndent(wf, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filePath, data, 0600)
+}
+
+// LoadWalletCustom reads and deserializes a centralized multi-wallet container from a specific custom file path.
+func LoadWalletCustom(filePath string) (*WalletFile, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var wf WalletFile
+	if err := json.Unmarshal(data, &wf); err != nil {
+		return nil, err
+	}
+	return &wf, nil
+}
+
+// SaveWallet serializes the multi-wallet container to the default wallet.dat file.
+func SaveWallet(wf *WalletFile) error {
+	return SaveWalletCustom(filepath.Join(walletDir, "wallet.dat"), wf)
+}
+
+// LoadWallet attempts to read and deserialize the default localized wallet.dat file from disk storage.
+func LoadWallet() (*WalletFile, error) {
+	filePath := filepath.Join(walletDir, "wallet.dat")
+	return LoadWalletCustom(filePath)
+}
+
+// CreateOrLoadWallet checks for an existing default wallet.dat file. If found, it loads it;
+// otherwise, it provisions a new centralized multi-wallet file containing an initial post-quantum keypair.
+func CreateOrLoadWallet() (*WalletFile, error) {
+	return CreateOrLoadWalletCustom(filepath.Join(walletDir, "wallet.dat"))
+}
+
+// CreateOrLoadWalletCustom provisions or loads a multi-wallet container at a custom file path, adding a new account if empty.
+func CreateOrLoadWalletCustom(filePath string) (*WalletFile, error) {
+	wf, err := LoadWalletCustom(filePath)
+	if err != nil || wf == nil || len(wf.Accounts) == 0 {
+		// Generate fresh post-quantum cryptographic public and private keypair for the initial account
+		pub, priv, err := crypto.GenerateKey()
+		if err != nil {
+			return nil, err
+		}
+
+		pubBytes, err := pub.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		
+		privBytes, err := priv.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+
+		addr := crypto.PubkeyToAddress(pubBytes)
+		pubHex := hex.EncodeToString(pubBytes)
+		privHex := hex.EncodeToString(privBytes)
+
+		wf = &WalletFile{
+			Version: 1,
+			Accounts: []Account{
+				{
+					Address:    addr,
+					PublicKey:  pubHex,
+					PrivateKey: privHex,
+				},
+			},
+		}
+
+		_ = SaveWalletCustom(filePath, wf)
+	}
+
+	return wf, nil
+}
+
+// GenerateNewAccount appends a brand new keypair/account into an existing WalletFile container and saves it.
+func GenerateNewAccount(filePath string) (string, error) {
+	wf, err := LoadWalletCustom(filePath)
+	if err != nil {
+		wf = &WalletFile{
+			Version:  1,
+			Accounts: []Account{},
+		}
+	}
+
+	pub, priv, err := crypto.GenerateKey()
+	if err != nil {
+		return "", err
+	}
+
+	pubBytes, err := pub.MarshalBinary()
+	if err != nil {
+		return "", err
+	}
+	
+	privBytes, err := priv.MarshalBinary()
+	if err != nil {
+		return "", err
+	}
+
+	addr := crypto.PubkeyToAddress(pubBytes)
+	pubHex := hex.EncodeToString(pubBytes)
+	privHex := hex.EncodeToString(privBytes)
+
+	newAcc := Account{
 		Address:    addr,
 		PublicKey:  pubHex,
 		PrivateKey: privHex,
 	}
 
-	// Serialize the wallet data struct into an indented JSON byte sequence for readability and storage.
-	data, err := json.MarshalIndent(w, "", "  ")
-	if err != nil {
-		return err
+	wf.Accounts = append(wf.Accounts, newAcc)
+	if err := SaveWalletCustom(filePath, wf); err != nil {
+		return "", err
 	}
 
-	// Write the serialized wallet configuration file to disk with strict file permissions (owner-read/write only).
-	return os.WriteFile(filePath, data, 0600)
+	return addr, nil
 }
 
-// LoadWalletCustom reads and deserializes a keystore mapping from a specific custom file path.
-func LoadWalletCustom(filePath string) (string, *mode3.PrivateKey, []byte, error) {
-	// Read the raw file content from the specified keystore file path.
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", nil, nil, err
+// GetPrivateKeyInstance decodes and returns the raw mode3.PrivateKey instance for a specific address from the wallet container.
+func GetPrivateKeyInstance(wf *WalletFile, targetAddress string) (*mode3.PrivateKey, []byte, error) {
+	for _, acc := range wf.Accounts {
+		if acc.Address == targetAddress {
+			privBytes, _ := hex.DecodeString(acc.PrivateKey)
+			pubBytes, _ := hex.DecodeString(acc.PublicKey)
+
+			var priv mode3.PrivateKey
+			if err := priv.UnmarshalBinary(privBytes); err != nil {
+				return nil, nil, err
+			}
+			return &priv, pubBytes, nil
+		}
 	}
-
-	var w WalletData
-	// Unmarshal the JSON byte payload back into the WalletData structure.
-	if err := json.Unmarshal(data, &w); err != nil {
-		return "", nil, nil, err
-	}
-
-	// Decode the hexadecimal private and public key strings back into raw byte slices.
-	privBytes, _ := hex.DecodeString(w.PrivateKey)
-	pubBytes, _ := hex.DecodeString(w.PublicKey)
-
-	var priv mode3.PrivateKey
-	// Unmarshal the raw private key bytes into a functional post-quantum Dilithium private key instance.
-	if err := priv.UnmarshalBinary(privBytes); err != nil {
-		return "", nil, nil, err
-	}
-
-	// Return the parsed wallet address, private key pointer, public key bytes, and nil error status.
-	return w.Address, &priv, pubBytes, nil
-}
-
-// SaveWallet serializes the wallet credential parameters to the default keystore file.
-func SaveWallet(addr, pubHex, privHex string) error {
-	// Delegate the save operation to SaveWalletCustom targeting the default keystore location.
-	return SaveWalletCustom(filepath.Join(walletDir, "keystore.json"), addr, pubHex, privHex)
-}
-
-// LoadWallet attempts to read and deserialize the default localized keystore mapping from disk storage.
-func LoadWallet() (*WalletData, error) {
-	filePath := filepath.Join(walletDir, "keystore.json")
-	// Read the raw contents of the default keystore file from disk.
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	var w WalletData
-	// Parse the retrieved JSON data into a WalletData struct instance.
-	if err := json.Unmarshal(data, &w); err != nil {
-		return nil, err
-	}
-
-	// Return a pointer to the loaded wallet data structure and nil error.
-	return &w, nil
-}
-
-// CreateOrLoadWallet checks for an existing default keystore file. If found, it loads and decodes the keys;
-// otherwise, it provisions a new post-quantum Dilithium keypair and persists it.
-func CreateOrLoadWallet() (string, *mode3.PrivateKey, []byte, error) {
-	// Delegate execution to CreateOrLoadWalletCustom using the default keystore path.
-	return CreateOrLoadWalletCustom(filepath.Join(walletDir, "keystore.json"))
-}
-
-// CreateOrLoadWalletCustom provisions a new post-quantum Dilithium keypair and persists it to a custom file path.
-func CreateOrLoadWalletCustom(filePath string) (string, *mode3.PrivateKey, []byte, error) {
-	// Generate a fresh post-quantum cryptographic public and private keypair.
-	pub, priv, err := crypto.GenerateKey()
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	// Marshal the public key instance into its raw binary byte representation.
-	pubBytes, err := pub.MarshalBinary()
-	if err != nil {
-		return "", nil, nil, err
-	}
-	
-	// Marshal the private key instance into its raw binary byte representation.
-	privBytes, err := priv.MarshalBinary()
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	// Derive the blockchain network address string from the raw public key bytes.
-	addr := crypto.PubkeyToAddress(pubBytes)
-	// Encode both public and private key bytes into hexadecimal strings for persistent storage.
-	pubHex := hex.EncodeToString(pubBytes)
-	privHex := hex.EncodeToString(privBytes)
-
-	// Persist the newly generated key credentials and address to the specified file path.
-	_ = SaveWalletCustom(filePath, addr, pubHex, privHex)
-
-	// Return the derived address, private key pointer, public key bytes, and nil error status.
-	return addr, priv, pubBytes, nil
+	return nil, nil, os.ErrNotExist
 }
