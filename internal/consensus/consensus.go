@@ -37,7 +37,7 @@ const (
 
 	// ExpectedGenesisHash stores the immutable hardcoded SHA3-512 hash checkpoint of the Eterbit Genesis block.
 	// Any tampering with the Genesis parameters or message will alter this hash and trigger consensus rejection.
-	ExpectedGenesisHash string = "00070bc0e8b185ea8e36521ec825f9054a9a5c44cd95b4c189392cbfa935d389cb220f4cc46460134b677a0b33908194e1ae2ed946d9923e201c2a186a5b705e"
+	ExpectedGenesisHash string = "000e409e9ba9cc44032bf91fb345c10817dacc1d9234782d08873cf9b18bb67f803691b65fdc256678b8179fd2939e3c66874e7a5775945df0f42e3652e42c2d"
 )
 
 // CheckpointData represents a hardcoded historical block height and its immutable cryptographic hash checkpoint.
