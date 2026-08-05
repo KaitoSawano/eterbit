@@ -87,13 +87,16 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 		genesis.Message,
 	)
 
-	if genesis.Hash != HardcodedGenesisHash && calculatedGenesisHash != HardcodedGenesisHash {
+	// Convert genesis.Hash ([]byte) to hex string for comparison against HardcodedGenesisHash (string)
+	genesisHashHex := hex.EncodeToString(genesis.Hash)
+
+	if HardcodedGenesisHash != "" && (genesisHashHex != HardcodedGenesisHash && calculatedGenesisHash != HardcodedGenesisHash) {
 		panic(fmt.Sprintf("\n\n[FATAL CONSENSUS PANIC] GENESIS TAMPERING DETECTED!\n"+
 			"The genesis block or its timestamp message has been illegally modified!\n"+
 			"Expected Genesis Hash: %s\n"+
 			"Got Invalid Hash:      %s\n"+
 			"Node execution halted immediately to preserve network consensus integrity.\n",
-			HardcodedGenesisHash, genesis.Hash))
+			HardcodedGenesisHash, genesisHashHex))
 	}
 
 	// 2. Verify Genesis Reward
@@ -217,7 +220,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 	exactReward := CalculateBlockReward(0)
 	
 	// --- GENESIS MESSAGE (pszTimestamp equivalent) ---
-	pszTimestamp := "IND Today 05/Aug/2026 Aldianokto, While banks keep printing Debt, We build an honest Exit"
+	pszTimestamp := "Aldianokto, Keep Your Hidden Fees and Inflated Fiat, We Built an Honest Exit."
 
 	genesis := &core.LedgerBlock{
 		Index:      0,
