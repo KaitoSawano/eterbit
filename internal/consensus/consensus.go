@@ -38,9 +38,9 @@ const (
 	AddressPrefix      string = "etrb"                // Immutable Wallet Address Prefix
 
 	// Proof-of-Work Target Parameters
-	PowTargetTimespan int64 = 2 * 24 * 60 * 60 // Difficulty adjustment span (e.g., 2 Days)
-	PowTargetSpacing  int64 = 35               // Target block time spacing in seconds
-	TargetBlockTimeSec int64 = PowTargetSpacing // Backward compatibility alias for target block time
+	PowTargetTimespan  int64  = 2 * 24 * 60 * 60 // Difficulty adjustment span (e.g., 2 Days)
+	PowTargetSpacing   int64  = 35               // Target block time spacing in seconds
+	TargetBlockTimeSec int64  = PowTargetSpacing // Backward compatibility alias for target block time
 
 	// ExpectedGenesisHash stores the immutable hardcoded SHA3-512 hash checkpoint of the Eterbit Genesis block.
 	ExpectedGenesisHash string = "000e409e9ba9cc44032bf91fb345c10817dacc1d9234782d08873cf9b18bb67f803691b65fdc256678b8179fd2939e3c66874e7a5775945df0f42e3652e42c2d"
@@ -122,10 +122,25 @@ func CalculateNextDifficulty(prevBlockTimestamp int64, currentBlockTimestamp int
 	return newDifficulty
 }
 
-// ValidatePoW verifies whether a given block header hash satisfies the target difficulty requirement.
-func ValidatePoW(blockHash string, difficulty uint64) bool {
-	target := createTargetPrefix(difficulty)
-	return len(blockHash) >= int(difficulty) && blockHash[:int(difficulty)] == target
+// ValidatePoW verifies whether a given block header hash satisfies the target difficulty limit using Big Integer comparison.
+func ValidatePoW(blockHashHex string, difficultyBits uint64) bool {
+	hashInt := new(big.Int)
+	hashBytes, err := hex.DecodeString(blockHashHex)
+	if err != nil {
+		return false
+	}
+	hashInt.SetBytes(hashBytes)
+
+	if hashInt.Cmp(PoWLimit) > 0 {
+		return false
+	}
+
+	target := new(big.Int).Set(PoWLimit)
+	if difficultyBits > 1 {
+		target.Rsh(target, uint(difficultyBits))
+	}
+
+	return hashInt.Cmp(target) <= 0
 }
 
 // ComputeHeaderHash calculates the quantum-resistant cryptographic SHA3-512 hash representation for block validation, including the optional genesis message.
@@ -163,15 +178,6 @@ func VerifyCheckpoint(height uint64, blockHash []byte) error {
 		return fmt.Errorf("CONSENSUS REJECTION: Checkpoint mismatch at block height %d! Expected '%s', got '%s'. Chain rejected.", height, expectedHash, actualHashHex)
 	}
 	return nil
-}
-
-// createTargetPrefix generates the required leading zero pattern based on the difficulty level.
-func createTargetPrefix(difficulty uint64) string {
-	prefix := ""
-	for i := uint64(0); i < difficulty; i++ {
-		prefix += "0"
-	}
-	return prefix
 }
 
 // VerifyBlockReward checks if the distributed block reward and transaction fees adhere to protocol limits.
