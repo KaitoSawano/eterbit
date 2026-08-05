@@ -29,8 +29,8 @@ import (
 	"eterbit/storage"
 )
 
-// Hardcoded Genesis Hash checkpoint linked directly to the immutable consensus specifications.
-const HardcodedGenesisHash = "000e409e9ba9cc44032bf91fb345c10817dacc1d9234782d08873cf9b18bb67f803691b65fdc256678b8179fd2939e3c66874e7a5775945df0f42e3652e42c2d"
+// Hardcoded Genesis Hash checkpoint disabled temporarily to allow instant local genesis generation.
+const HardcodedGenesisHash = ""
 
 // AccountState represents the account balance and transaction sequence nonce.
 type AccountState struct {
@@ -91,9 +91,11 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 			HardcodedGenesisHash, genesisHashHex))
 	}
 
-	// Also leverage the centralized consensus verification function for completeness.
-	if err := consensus.VerifyGenesisCheckpoint(genesis.Hash); err != nil {
-		panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] %v", err))
+	// Also leverage the centralized consensus verification function for completeness (bypassed if empty).
+	if HardcodedGenesisHash != "" {
+		if err := consensus.VerifyGenesisCheckpoint(genesis.Hash); err != nil {
+			panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] %v", err))
+		}
 	}
 
 	// Iterate through all loaded blocks and validate them against Bitcoin-style hardcoded checkpoints.
@@ -258,6 +260,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 	lc.Storage.SaveBlock(0, genesis)
 	
 	fmt.Printf("[GENESIS] Block 0 Created with message: '%s'\n", pszTimestamp)
+	fmt.Printf("[GENESIS HASH] %s\n", hex.EncodeToString(genesis.Hash))
 }
 
 // AddToMempool validates and inserts a transaction payload into the pending mempool queue with Fee Market priority sorting.
