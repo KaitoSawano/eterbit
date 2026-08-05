@@ -18,7 +18,9 @@ package core
 import (
 	"bytes"
 	"encoding/hex"
+	"runtime"
 	"strconv"
+	"sync/atomic"
 
 	"eterbit/internal/consensus"
 	"golang.org/x/crypto/sha3"
@@ -82,7 +84,7 @@ func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byt
 	}, []byte{})
 }
 
-// Mine executes an iterative proof-of-work search loop using SHA3-512, testing candidate nonces until a hash meeting the target difficulty is discovered.
+// Mine executes a multi-threaded parallel Proof-of-Work search loop utilizing all available CPU cores.
 func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 	// Preserve the immutable block reward configured and validated by LedgerCore to enforce hard MaxSupply caps.
 	// Fall back to standard block reward calculation exclusively if uninitialized outside genesis bounds.
@@ -95,23 +97,64 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 		b.Bits = ce.Bits
 	}
 
-	var nonce uint64 = 0
-	// Initialize SHA3-512 cryptographic hasher for quantum-resistant mining loops
-	hasher := sha3.New512()
-
-	// Iteratively test nonces until a resulting hash satisfies the proof-of-work difficulty requirement.
-	for {
-		data := ce.AssembleBlockData(b, nonce)
-		hasher.Reset()
-		hasher.Write(data)
-		hash := hasher.Sum(nil)
-
-		// Evaluate generated hash against active consensus difficulty target constraints.
-		if ce.validateHash(hash) {
-			return nonce, hash
-		}
-		nonce++
+	numWorkers := runtime.NumCPU()
+	if numWorkers < 1 {
+		numWorkers = 4
 	}
+
+	// Channel to capture the successful mining result (nonce and hash)
+	type result struct {
+		nonce uint64
+		hash  []byte
+	}
+	resultChan := make(chan result, 1)
+	stopChan := make(chan struct{})
+
+	// Atomic counter to distribute nonce ranges cleanly across worker goroutines
+	var baseNonce uint64 = 0
+
+	for i := 0; i < numWorkers; i++ {
+		go func(workerID int) {
+			// Each worker gets its own independent SHA3-512 hasher instance to avoid data races
+			hasher := sha3.New512()
+			
+			// Local chunk offset per worker
+			var localNonce uint64 = uint64(workerID) * 1000000000
+
+			for {
+				select {
+				case <-stopChan:
+					return
+				default:
+					// Periodically grab a block of nonces atomically
+					if localNonce%50000 == 0 {
+						localNonce = atomic.AddUint64(&baseNonce, 50000)
+					}
+
+					data := ce.AssembleBlockData(b, localNonce)
+					hasher.Reset()
+					hasher.Write(data)
+					hash := hasher.Sum(nil)
+
+					// Evaluate generated hash against active consensus difficulty target constraints.
+					if ce.validateHash(hash) {
+						select {
+						case resultChan <- result{nonce: localNonce, hash: hash}:
+						default:
+						}
+						return
+					}
+					localNonce++
+				}
+			}
+		}(i)
+	}
+
+	// Wait until a worker finds the valid hash
+	res := <-resultChan
+	close(stopChan) // Signal all other worker goroutines to stop
+
+	return res.nonce, res.hash
 }
 
 // validateHash validates the generated hash using validation rules defined within internal/consensus.
