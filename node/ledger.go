@@ -5,7 +5,7 @@
 // Project: Eterbit / Blockchain Core
 //
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at. <http://www.apache.org/licenses/LICENSE-2.0>
+// You may obtain a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -234,7 +234,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 	exactReward := CalculateBlockReward(0)
 	
 	// --- GENESIS TIMESTAMP MESSAGE ---
-	pszTimestamp := "IND Today 05/Aug/2026 Aldianokto, While banks keep printing Debt, We build an honest Exit"
+	pszTimestamp := "IND Today 05/Aug/2026 AldianOkto, While banks keep printing Debt, We build an honest Exit"
 
 	genesis := &core.LedgerBlock{
 		Index:      0,
@@ -244,6 +244,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 		Miner:      "SYSTEM_GENESIS",
 		Nonce:      0,
 		Difficulty: lc.Engine.TargetDifficulty,
+		Bits:       lc.Engine.Bits, // Set Genesis nBits
 		Reward:     exactReward,
 		Message:    pszTimestamp, // Embed genesis message string here
 	}
@@ -433,6 +434,7 @@ func (lc *LedgerCore) MineBlock() {
 		Transfers:  validTx,
 		Miner:      lc.MinerAddress,
 		Difficulty: lc.Engine.TargetDifficulty,
+		Bits:       lc.Engine.Bits,
 		Reward:     exactReward,
 	}
 
