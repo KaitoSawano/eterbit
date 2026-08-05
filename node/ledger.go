@@ -29,6 +29,9 @@ import (
 	"eterbit/storage"
 )
 
+// Hardcoded Genesis Hash checkpoint to strictly prevent unauthorized genesis tampering (Bitcoin-grade protection).
+const HardcodedGenesisHash = ""
+
 // AccountState represents the account balance and transaction sequence nonce.
 type AccountState struct {
 	Balance uint64 `json:"balance"`
@@ -74,8 +77,27 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 		return
 	}
 	genesis := lc.Chain[0]
+
+	// 1. Verify Genesis Hash against the Hardcoded Checkpoint
+	calculatedGenesisHash := consensus.ComputeHeaderHash(
+		hex.EncodeToString(genesis.PrevHash),
+		"", // MerkleRoot for genesis is empty
+		genesis.Timestamp,
+		genesis.Nonce,
+		genesis.Message,
+	)
+
+	if genesis.Hash != HardcodedGenesisHash && calculatedGenesisHash != HardcodedGenesisHash {
+		panic(fmt.Sprintf("\n\n[FATAL CONSENSUS PANIC] GENESIS TAMPERING DETECTED!\n"+
+			"The genesis block or its timestamp message has been illegally modified!\n"+
+			"Expected Genesis Hash: %s\n"+
+			"Got Invalid Hash:      %s\n"+
+			"Node execution halted immediately to preserve network consensus integrity.\n",
+			HardcodedGenesisHash, genesis.Hash))
+	}
+
+	// 2. Verify Genesis Reward
 	expectedGenesisReward := CalculateBlockReward(0)
-	
 	if genesis.Reward != expectedGenesisReward {
 		panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] DATABASE/CONSENSUS MISMATCH DETECTED!\n"+
 			"The immutable macroeconomic rules (MaxSupply/Reward) have been illegally modified!\n"+
@@ -193,6 +215,10 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 func (lc *LedgerCore) SpawnGenesis() {
 	// Compute the base block reward allocation specifically designated for block index zero.
 	exactReward := CalculateBlockReward(0)
+	
+	// --- GENESIS MESSAGE (pszTimestamp equivalent) ---
+	pszTimestamp := "IND Today 05/Aug/2026 Aldianokto, While banks keep printing Debt, We build an honest Exit"
+
 	genesis := &core.LedgerBlock{
 		Index:      0,
 		Timestamp:  time.Now().Unix(),
@@ -202,7 +228,9 @@ func (lc *LedgerCore) SpawnGenesis() {
 		Nonce:      0,
 		Difficulty: lc.Engine.TargetDifficulty,
 		Reward:     exactReward,
+		Message:    pszTimestamp, // <-- Embed genesis message string here
 	}
+	
 	// Execute the consensus mining algorithm to solve the genesis block proof-of-work puzzle.
 	_, genesis.Hash = lc.Engine.Mine(genesis)
 	genesis.Reward = exactReward // Protect the genesis reward value against external modifications.
@@ -210,6 +238,8 @@ func (lc *LedgerCore) SpawnGenesis() {
 	// Append the newly minted genesis block to the local chain array and persist it to storage.
 	lc.Chain = append(lc.Chain, genesis)
 	lc.Storage.SaveBlock(0, genesis)
+	
+	fmt.Printf("[GENESIS] Block 0 Created with message: '%s'\n", pszTimestamp)
 }
 
 // AddToMempool validates and inserts a transaction payload into the pending mempool queue with Fee Market priority sorting.
@@ -300,6 +330,13 @@ func (lc *LedgerCore) StartLiveWorker(interval time.Duration) {
 
 // MineBlock packages mempool transactions, executes proof-of-work mining, and appends the new block to the ledger.
 func (lc *LedgerCore) MineBlock() {
+	// --- STRICT MINER ADDRESS PREFIX VALIDATION ---
+	params := consensus.DefaultConsensus()
+	if lc.MinerAddress != "SYSTEM_GENESIS" && !strings.HasPrefix(lc.MinerAddress, params.AddressPrefix) {
+		panic(fmt.Sprintf("[CONSENSUS VIOLATION] Invalid miner address prefix! Expected prefix '%s', got '%s'", params.AddressPrefix, lc.MinerAddress))
+	}
+	// ----------------------------------------------
+
 	lc.Mu.Lock()
 	parent := lc.Chain[len(lc.Chain)-1]
 	validTx := make([]*core.Transfer, 0)

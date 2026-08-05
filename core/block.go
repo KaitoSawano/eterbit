@@ -40,6 +40,7 @@ type LedgerBlock struct {
 	Nonce      uint64      `json:"nonce"`
 	Difficulty uint32      `json:"difficulty"`
 	Reward     uint64      `json:"reward"`
+	Message    string      `json:"message,omitempty"` // <-- Added pszTimestamp equivalent field
 }
 
 // GetBlockReward dynamically computes the block reward using the centralized consensus package.
@@ -58,20 +59,21 @@ func NewConsensusEngine(difficulty uint32) *ConsensusEngine {
 	return &ConsensusEngine{TargetDifficulty: difficulty}
 }
 
-// AssembleBlockData serializes and concatenates block headers, transactional payloads, and a candidate nonce into a unified byte array for hashing.
+// AssembleBlockData serializes and concatenates block headers, transactional payloads, candidate nonce, and genesis message into a unified byte array for hashing.
 func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byte {
 	var rawTxData []byte
 	// Concatenate all transfer signatures included in the block payload.
 	for _, tx := range b.Transfers {
 		rawTxData = append(rawTxData, tx.Signature...)
 	}
-	// Join all block components into a single canonical byte array representation.
+	// Join all block components including the message into a single canonical byte array representation.
 	return bytes.Join([][]byte{
 		b.PrevHash,
 		rawTxData,
 		[]byte(strconv.FormatUint(b.Index, 16)),
 		[]byte(strconv.FormatInt(b.Timestamp, 16)),
 		[]byte(strconv.FormatUint(nonce, 16)),
+		[]byte(b.Message), // <-- Include message in PoW hashing calculation
 	}, []byte{})
 }
 

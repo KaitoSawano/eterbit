@@ -24,14 +24,14 @@ import (
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
 const (
-	CoinUnit           uint64 = 100000000          // 8 Decimals precision factor
+	CoinUnit           uint64 = 100000000         // 8 Decimals precision factor
 	MaxSupply          uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
-	BlockReward        uint64 = 50 * CoinUnit      // Initial Mining Reward: 50 Coins per Block
-	HalvingInterval    uint64 = 7850000            // Strict Halving Block Interval
-	DefaultPort        int    = 19333              // Default P2P Network Port
-	BaseDifficulty     uint64 = 3                  // Minimum/Base Target Difficulty Bits
-	TargetBlockTimeSec int64  = 35                 // Target block time in seconds
-	AddressPrefix      string = "etrb"             // Immutable Wallet Address Prefix
+	BlockReward        uint64 = 50 * CoinUnit     // Initial Mining Reward: 50 Coins per Block
+	HalvingInterval    uint64 = 7850000           // Strict Halving Block Interval
+	DefaultPort        int    = 19333             // Default P2P Network Port
+	BaseDifficulty     uint64 = 3                 // Minimum/Base Target Difficulty Bits
+	TargetBlockTimeSec int64  = 35                // Target block time in seconds
+	AddressPrefix      string = "etrb"            // Immutable Wallet Address Prefix
 )
 
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit blockchain.
@@ -99,13 +99,14 @@ func ValidatePoW(blockHash string, difficulty uint64) bool {
 	return len(blockHash) >= int(difficulty) && blockHash[:int(difficulty)] == target
 }
 
-// ComputeHeaderHash calculates the cryptographic SHA-256 hash representation for block validation.
-func ComputeHeaderHash(prevHash string, merkleRoot string, timestamp int64, nonce uint64) string {
+// ComputeHeaderHash calculates the cryptographic SHA-256 hash representation for block validation, including the optional genesis message.
+func ComputeHeaderHash(prevHash string, merkleRoot string, timestamp int64, nonce uint64, message string) string {
 	record := bytes.Join([][]byte{
 		[]byte(prevHash),
 		[]byte(merkleRoot),
 		big.NewInt(timestamp).Bytes(),
 		big.NewInt(int64(nonce)).Bytes(),
+		[]byte(message),
 	}, []byte{})
 
 	hash := sha256.Sum256(record)
