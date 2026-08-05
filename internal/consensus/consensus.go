@@ -24,7 +24,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// PoWLimit defines the maximum target difficulty limit.
+// PoWLimit defines the maximum target difficulty limit in Big Integer 256-bit representation.
 var PoWLimit, _ = new(big.Int).SetString("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
@@ -34,7 +34,6 @@ const (
 	BlockReward        uint64 = 50 * CoinUnit         // Initial Minting Reward: 50 Units per Block
 	HalvingInterval    uint64 = 7850000               // Strict Halving Block Interval
 	DefaultPort        int    = 19333                 // Default P2P Network Port
-	BaseDifficulty     uint64 = 1                     // Minimum/Base Target Difficulty Bits
 	AddressPrefix      string = "etrb"                // Immutable Wallet Address Prefix
 
 	// Proof-of-Work Target Parameters
@@ -61,7 +60,7 @@ var HardcodedCheckpoints = map[uint64]string{
 
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit ledger.
 type ConsensusParameters struct {
-	DifficultyBits    uint64 // Target difficulty prefix/bits for Proof-of-Work
+	DifficultyBits    uint64 // Target difficulty level / factor
 	BlockReward       uint64 // Initial minting reward per block (with 8 decimals precision)
 	MaxSupply         uint64 // Maximum cap for token issuance (with 8 decimals precision)
 	HalvingInterval   uint64 // Interval blocks for halving
@@ -71,10 +70,10 @@ type ConsensusParameters struct {
 	PowTargetSpacing  int64  // Target block time spacing
 }
 
-// DefaultConsensus returns the standard operational consensus rules for Eterbit.
+// DefaultConsensus returns the standard operational consensus rules for Eterbit using PoWLimit baseline.
 func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
-		DifficultyBits:    BaseDifficulty,
+		DifficultyBits:    1, // Initial baseline factor multiplier
 		BlockReward:       BlockReward,
 		MaxSupply:         MaxSupply,
 		HalvingInterval:   HalvingInterval,
@@ -98,8 +97,8 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 // based on the time taken to process the previous block compared to TargetBlockTimeSec.
 func CalculateNextDifficulty(prevBlockTimestamp int64, currentBlockTimestamp int64, prevDifficulty uint64) uint64 {
 	if prevBlockTimestamp == 0 || currentBlockTimestamp <= prevBlockTimestamp {
-		if prevDifficulty < BaseDifficulty {
-			return BaseDifficulty
+		if prevDifficulty < 1 {
+			return 1
 		}
 		return prevDifficulty
 	}
@@ -110,19 +109,19 @@ func CalculateNextDifficulty(prevBlockTimestamp int64, currentBlockTimestamp int
 	if timeElapsed < TargetBlockTimeSec {
 		newDifficulty = prevDifficulty + 1
 	} else if timeElapsed > TargetBlockTimeSec*2 {
-		if prevDifficulty > BaseDifficulty {
+		if prevDifficulty > 1 {
 			newDifficulty = prevDifficulty - 1
 		}
 	}
 
-	if newDifficulty < BaseDifficulty {
-		return BaseDifficulty
+	if newDifficulty < 1 {
+		return 1
 	}
 
 	return newDifficulty
 }
 
-// ValidatePoW verifies whether a given block header hash satisfies the target difficulty limit using Big Integer comparison.
+// ValidatePoW verifies whether a given block header hash satisfies the target difficulty limit using pure Big Integer evaluation.
 func ValidatePoW(blockHashHex string, difficultyBits uint64) bool {
 	hashInt := new(big.Int)
 	hashBytes, err := hex.DecodeString(blockHashHex)
@@ -131,19 +130,22 @@ func ValidatePoW(blockHashHex string, difficultyBits uint64) bool {
 	}
 	hashInt.SetBytes(hashBytes)
 
+	// Hash must not exceed the absolute PoWLimit threshold
 	if hashInt.Cmp(PoWLimit) > 0 {
 		return false
 	}
 
+	// Derive target difficulty by shifting PoWLimit based on difficulty bits factor
 	target := new(big.Int).Set(PoWLimit)
 	if difficultyBits > 1 {
 		target.Rsh(target, uint(difficultyBits))
 	}
 
+	// Valid if hashInt <= target
 	return hashInt.Cmp(target) <= 0
 }
 
-// ComputeHeaderHash calculates the quantum-resistant cryptographic SHA3-512 hash representation for block validation, including the optional genesis message.
+// ComputeHeaderHash calculates the cryptographic SHA3-512 hash representation for block validation, including the optional genesis message.
 func ComputeHeaderHash(prevHash string, merkleRoot string, timestamp int64, nonce uint64, message string) string {
 	record := bytes.Join([][]byte{
 		[]byte(prevHash),
