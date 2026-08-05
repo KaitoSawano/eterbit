@@ -90,11 +90,13 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 	// Convert genesis.Hash ([]byte) to hex string for comparison against HardcodedGenesisHash (string)
 	genesisHashHex := hex.EncodeToString(genesis.Hash)
 
-	if HardcodedGenesisHash != "" && (genesisHashHex != HardcodedGenesisHash && calculatedGenesisHash != HardcodedGenesisHash) {
-		panic(fmt.Sprintf("\n\n[FATAL CONSENSUS PANIC] GENESIS TAMPERING DETECTED!\n"+
-			"The genesis block or its timestamp message has been illegally modified!\n"+
-			"Expected Genesis Hash: %s\n"+
-			"Got Invalid Hash:      %s\n"+
+	// Mutlak: Jika HardcodedGenesisHash ada, hash yang tersimpan di database WAJIB SAMA PERSIS.
+	// Jika berbeda (walaupun folder database belum dihapus), langsung Panic ala Bitcoin Core!
+	if HardcodedGenesisHash != "" && (genesisHashHex != HardcodedGenesisHash || calculatedGenesisHash != HardcodedGenesisHash) {
+		panic(fmt.Sprintf("\n\n[FATAL CONSENSUS PANIC] GENESIS TAMPERING / RULE MISMATCH DETECTED!\n"+
+			"The genesis block or its rules have been modified while an existing database is present!\n"+
+			"Expected Checkpoint Hash: %s\n"+
+			"Got Database Hash:        %s\n"+
 			"Node execution halted immediately to preserve network consensus integrity.\n",
 			HardcodedGenesisHash, genesisHashHex))
 	}
