@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
 	"eterbit/internal/consensus"
 )
 
