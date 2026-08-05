@@ -5,7 +5,7 @@
 // Project: Eterbit / Blockchain Core
 //
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at. <http://www.apache.org/licenses/LICENSE-2.0>
+// You may obtain a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,19 +24,21 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// PoWLimit defines the maximum target difficulty limit (similar to Bitcoin's 00000ffffffff...)
+var PoWLimit, _ = new(big.Int).SetString("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
 const (
-	CoinUnit           uint64 = 100000000            // 8 Decimals precision factor
+	CoinUnit           uint64 = 100000000             // 8 Decimals precision factor
 	MaxSupply          uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
-	BlockReward        uint64 = 50 * CoinUnit        // Initial Mining Reward: 50 Coins per Block
-	HalvingInterval    uint64 = 7850000              // Strict Halving Block Interval
-	DefaultPort        int    = 19333                // Default P2P Network Port
-	BaseDifficulty     uint64 = 1                    // Minimum/Base Target Difficulty Bits
-	TargetBlockTimeSec int64  = 35                   // Target block time in seconds
-	AddressPrefix      string = "etrb"               // Immutable Wallet Address Prefix
+	BlockReward        uint64 = 50 * CoinUnit         // Initial Mining Reward: 50 Coins per Block
+	HalvingInterval    uint64 = 7850000               // Strict Halving Block Interval
+	DefaultPort        int    = 19333                 // Default P2P Network Port
+	BaseDifficulty     uint64 = 1                     // Minimum/Base Target Difficulty Bits
+	TargetBlockTimeSec int64  = 35                    // Target block time in seconds
+	AddressPrefix      string = "etrb"                // Immutable Wallet Address Prefix
 
 	// ExpectedGenesisHash stores the immutable hardcoded SHA3-512 hash checkpoint of the Eterbit Genesis block.
-	// Any tampering with the Genesis parameters or message will alter this hash and trigger consensus rejection.
 	ExpectedGenesisHash string = "000e409e9ba9cc44032bf91fb345c10817dacc1d9234782d08873cf9b18bb67f803691b65fdc256678b8179fd2939e3c66874e7a5775945df0f42e3652e42c2d"
 )
 
@@ -84,8 +86,8 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 	return BlockReward >> halvings
 }
 
-// CalculateNextDifficulty implements an Ethereum-style dynamic difficulty adjustment
-// based on the time taken to mine the previous block compared to the TargetBlockTimeSec.
+// CalculateNextDifficulty implements a dynamic difficulty adjustment
+// based on the time taken to mine the previous block compared to TargetBlockTimeSec.
 func CalculateNextDifficulty(prevBlockTimestamp int64, currentBlockTimestamp int64, prevDifficulty uint64) uint64 {
 	if prevBlockTimestamp == 0 || currentBlockTimestamp <= prevBlockTimestamp {
 		if prevDifficulty < BaseDifficulty {
