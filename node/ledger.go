@@ -78,7 +78,7 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 	}
 	genesis := lc.Chain[0]
 
-	// 1. Verify Genesis Hash against the Hardcoded Consensus Checkpoint
+	// Compute the header hash from the loaded genesis payload for strict cryptographic verification.
 	calculatedGenesisHash := consensus.ComputeHeaderHash(
 		hex.EncodeToString(genesis.PrevHash),
 		"", // MerkleRoot for genesis is empty
@@ -87,11 +87,10 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 		genesis.Message,
 	)
 
-	// Convert genesis.Hash ([]byte) to hex string for comparison against HardcodedGenesisHash (string)
+	// Convert raw byte slice hash to hex string format for comparison against the hardcoded checkpoint.
 	genesisHashHex := hex.EncodeToString(genesis.Hash)
 
-	// Mutlak: Jika HardcodedGenesisHash ada, hash yang tersimpan di database WAJIB SAMA PERSIS.
-	// Jika berbeda (walaupun folder database belum dihapus), langsung Panic ala Bitcoin Core!
+	// Strict Bitcoin-grade check: Halt immediately if the database hash or calculated hash drifts from the immutable checkpoint.
 	if HardcodedGenesisHash != "" && (genesisHashHex != HardcodedGenesisHash || calculatedGenesisHash != HardcodedGenesisHash) {
 		panic(fmt.Sprintf("\n\n[FATAL CONSENSUS PANIC] GENESIS TAMPERING / RULE MISMATCH DETECTED!\n"+
 			"The genesis block or its rules have been modified while an existing database is present!\n"+
@@ -101,12 +100,12 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 			HardcodedGenesisHash, genesisHashHex))
 	}
 
-	// Also leverage the centralized consensus verification function for completeness
+	// Also leverage the centralized consensus verification function for completeness.
 	if err := consensus.VerifyGenesisCheckpoint(genesis.Hash); err != nil {
 		panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] %v", err))
 	}
 
-	// 2. Verify Genesis Reward
+	// Verify macroeconomic genesis reward invariants against the trusted calculation engine.
 	expectedGenesisReward := CalculateBlockReward(0)
 	if genesis.Reward != expectedGenesisReward {
 		panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] DATABASE/CONSENSUS MISMATCH DETECTED!\n"+
@@ -409,7 +408,7 @@ func (lc *LedgerCore) MineBlock() {
 
 	currentTime := time.Now().Unix()
 
-	// Implement Ethereum-style Dynamic Difficulty Adjustment based on elapsed time from parent block
+	// Implement Ethereum-style Dynamic Difficulty Adjustment based on elapsed time from parent block.
 	calculatedDiff := consensus.CalculateNextDifficulty(parent.Timestamp, currentTime, uint64(parent.Difficulty))
 	lc.Engine.TargetDifficulty = uint32(calculatedDiff)
 
