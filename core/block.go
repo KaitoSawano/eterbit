@@ -5,7 +5,7 @@
 // Project: Eterbit / Blockchain Core
 //
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at. <http://www.apache.org/licenses/LICENSE-2.0>
+// You may obtain a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,6 +39,7 @@ type LedgerBlock struct {
 	Miner      string      `json:"miner"`
 	Nonce      uint64      `json:"nonce"`
 	Difficulty uint32      `json:"difficulty"`
+	Bits       uint32      `json:"bits"`       // Compact target difficulty bits representation (nBits)
 	Reward     uint64      `json:"reward"`
 	Message    string      `json:"message,omitempty"` // Added pszTimestamp equivalent field
 }
@@ -51,12 +52,16 @@ func GetBlockReward(blockHeight uint64) uint64 {
 // ConsensusEngine coordinates the proof-of-work mining process, hash target difficulty evaluation, and block validation parameters.
 type ConsensusEngine struct {
 	TargetDifficulty uint32
+	Bits             uint32
 }
 
-// NewConsensusEngine initializes and returns a new ConsensusEngine instance configured with the specified difficulty target.
+// NewConsensusEngine initializes and returns a new ConsensusEngine instance configured with the specified difficulty target and bits.
 func NewConsensusEngine(difficulty uint32) *ConsensusEngine {
-	// Instantiate and return a ConsensusEngine pointer with the targeted difficulty level.
-	return &ConsensusEngine{TargetDifficulty: difficulty}
+	// Instantiate and return a ConsensusEngine pointer with the targeted difficulty level and default genesis bits.
+	return &ConsensusEngine{
+		TargetDifficulty: difficulty,
+		Bits:             consensus.GenesisBits,
+	}
 }
 
 // AssembleBlockData serializes and concatenates block headers, transactional payloads, candidate nonce, and genesis message into a unified byte array for hashing.
@@ -83,6 +88,11 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 	// Fall back to standard block reward calculation exclusively if uninitialized outside genesis bounds.
 	if b.Reward == 0 && b.Index > 0 {
 		b.Reward = GetBlockReward(b.Index)
+	}
+
+	// Ensure the block carries the proper bits configuration
+	if b.Bits == 0 {
+		b.Bits = ce.Bits
 	}
 
 	var nonce uint64 = 0
