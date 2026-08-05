@@ -24,19 +24,23 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// PoWLimit defines the maximum target difficulty limit (similar to Bitcoin's 00000ffffffff...)
+// PoWLimit defines the maximum target difficulty limit.
 var PoWLimit, _ = new(big.Int).SetString("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
 const (
 	CoinUnit           uint64 = 100000000             // 8 Decimals precision factor
-	MaxSupply          uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
-	BlockReward        uint64 = 50 * CoinUnit         // Initial Mining Reward: 50 Coins per Block
+	MaxSupply          uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Units
+	BlockReward        uint64 = 50 * CoinUnit         // Initial Minting Reward: 50 Units per Block
 	HalvingInterval    uint64 = 7850000               // Strict Halving Block Interval
 	DefaultPort        int    = 19333                 // Default P2P Network Port
 	BaseDifficulty     uint64 = 1                     // Minimum/Base Target Difficulty Bits
-	TargetBlockTimeSec int64  = 35                    // Target block time in seconds
 	AddressPrefix      string = "etrb"                // Immutable Wallet Address Prefix
+
+	// Proof-of-Work Target Parameters
+	PowTargetTimespan int64 = 2 * 24 * 60 * 60 // Difficulty adjustment span (e.g., 2 Days)
+	PowTargetSpacing  int64 = 35               // Target block time spacing in seconds
+	TargetBlockTimeSec int64 = PowTargetSpacing // Backward compatibility alias for target block time
 
 	// ExpectedGenesisHash stores the immutable hardcoded SHA3-512 hash checkpoint of the Eterbit Genesis block.
 	ExpectedGenesisHash string = "000e409e9ba9cc44032bf91fb345c10817dacc1d9234782d08873cf9b18bb67f803691b65fdc256678b8179fd2939e3c66874e7a5775945df0f42e3652e42c2d"
@@ -48,32 +52,36 @@ type CheckpointData struct {
 	Hash   string
 }
 
-// HardcodedCheckpoints stores trusted historical checkpoints to prevent history rewrites and tampering (Bitcoin-style).
+// HardcodedCheckpoints stores trusted historical checkpoints to prevent history rewrites and tampering.
 var HardcodedCheckpoints = map[uint64]string{
 	0: ExpectedGenesisHash,
 	// Add future trusted block checkpoints here as the network grows:
 	// 10000: "some_block_hash_hex...",
 }
 
-// ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit blockchain.
+// ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit ledger.
 type ConsensusParameters struct {
-	DifficultyBits  uint64 // Target difficulty prefix/bits for Proof-of-Work
-	BlockReward     uint64 // Initial mining reward per block (with 8 decimals precision)
-	MaxSupply       uint64 // Maximum cap for token issuance (with 8 decimals precision)
-	HalvingInterval uint64 // Interval blocks for halving
-	DefaultPort     int    // Hardcoded network port
-	AddressPrefix   string // Hardcoded wallet address prefix
+	DifficultyBits    uint64 // Target difficulty prefix/bits for Proof-of-Work
+	BlockReward       uint64 // Initial minting reward per block (with 8 decimals precision)
+	MaxSupply         uint64 // Maximum cap for token issuance (with 8 decimals precision)
+	HalvingInterval   uint64 // Interval blocks for halving
+	DefaultPort       int    // Hardcoded network port
+	AddressPrefix     string // Hardcoded wallet address prefix
+	PowTargetTimespan int64  // Difficulty adjustment timespan
+	PowTargetSpacing  int64  // Target block time spacing
 }
 
 // DefaultConsensus returns the standard operational consensus rules for Eterbit.
 func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
-		DifficultyBits:  BaseDifficulty,
-		BlockReward:     BlockReward,
-		MaxSupply:       MaxSupply,
-		HalvingInterval: HalvingInterval,
-		DefaultPort:     DefaultPort,
-		AddressPrefix:   AddressPrefix,
+		DifficultyBits:    BaseDifficulty,
+		BlockReward:       BlockReward,
+		MaxSupply:         MaxSupply,
+		HalvingInterval:   HalvingInterval,
+		DefaultPort:       DefaultPort,
+		AddressPrefix:     AddressPrefix,
+		PowTargetTimespan: PowTargetTimespan,
+		PowTargetSpacing:  PowTargetSpacing,
 	}
 }
 
@@ -87,7 +95,7 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 }
 
 // CalculateNextDifficulty implements a dynamic difficulty adjustment
-// based on the time taken to mine the previous block compared to TargetBlockTimeSec.
+// based on the time taken to process the previous block compared to TargetBlockTimeSec.
 func CalculateNextDifficulty(prevBlockTimestamp int64, currentBlockTimestamp int64, prevDifficulty uint64) uint64 {
 	if prevBlockTimestamp == 0 || currentBlockTimestamp <= prevBlockTimestamp {
 		if prevDifficulty < BaseDifficulty {
