@@ -25,7 +25,8 @@ import (
 )
 
 // PoWLimit defines the maximum target difficulty limit in Big Integer 256-bit representation.
-var PoWLimit, _ = new(big.Int).SetString("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
+// Di-loose/longgarkan sementara agar mining genesis block instan di HP/perangkat lokal.
+var PoWLimit, _ = new(big.Int).SetString("00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
 const (
@@ -75,7 +76,7 @@ type ConsensusParameters struct {
 // DefaultConsensus returns the standard operational consensus rules for Eterbit using PoWLimit baseline.
 func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
-		DifficultyBits:    1,             // Initial baseline factor multiplier
+		DifficultyBits:    1,               // Initial baseline factor multiplier
 		GenesisBits:       GenesisBits,   // Compact target bits
 		BlockReward:       BlockReward,
 		MaxSupply:         MaxSupply,
