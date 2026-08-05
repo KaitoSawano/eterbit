@@ -225,13 +225,13 @@ func (lc *LedgerCore) SpawnGenesis() {
 	genesis := &core.LedgerBlock{
 		Index:      0,
 		Timestamp:  time.Now().Unix(),
-		PrevHash:   make([]byte, 32),
+		PrevHash:   make([]byte, 64), // 64 bytes to align fully with SHA3-512 standards
 		Transfers:  []*core.Transfer{},
 		Miner:      "SYSTEM_GENESIS",
 		Nonce:      0,
 		Difficulty: lc.Engine.TargetDifficulty,
 		Reward:     exactReward,
-		Message:    pszTimestamp, // <-- Embed genesis message string here
+		Message:    pszTimestamp, // Embed genesis message string here
 	}
 	
 	// Execute the consensus mining algorithm to solve the genesis block proof-of-work puzzle.

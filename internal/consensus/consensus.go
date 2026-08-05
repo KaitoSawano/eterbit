@@ -17,9 +17,10 @@ package consensus
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
+
+	"golang.org/x/crypto/sha3"
 )
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
@@ -29,7 +30,7 @@ const (
 	BlockReward        uint64 = 50 * CoinUnit     // Initial Mining Reward: 50 Coins per Block
 	HalvingInterval    uint64 = 7850000           // Strict Halving Block Interval
 	DefaultPort        int    = 19333             // Default P2P Network Port
-	BaseDifficulty     uint64 = 25                 // Minimum/Base Target Difficulty Bits
+	BaseDifficulty     uint64 = 15                // Minimum/Base Target Difficulty Bits
 	TargetBlockTimeSec int64  = 35                // Target block time in seconds
 	AddressPrefix      string = "etrb"            // Immutable Wallet Address Prefix
 )
@@ -99,7 +100,7 @@ func ValidatePoW(blockHash string, difficulty uint64) bool {
 	return len(blockHash) >= int(difficulty) && blockHash[:int(difficulty)] == target
 }
 
-// ComputeHeaderHash calculates the cryptographic SHA-256 hash representation for block validation, including the optional genesis message.
+// ComputeHeaderHash calculates the quantum-resistant cryptographic SHA3-512 hash representation for block validation, including the optional genesis message.
 func ComputeHeaderHash(prevHash string, merkleRoot string, timestamp int64, nonce uint64, message string) string {
 	record := bytes.Join([][]byte{
 		[]byte(prevHash),
@@ -109,7 +110,7 @@ func ComputeHeaderHash(prevHash string, merkleRoot string, timestamp int64, nonc
 		[]byte(message),
 	}, []byte{})
 
-	hash := sha256.Sum256(record)
+	hash := sha3.Sum512(record)
 	return hex.EncodeToString(hash[:])
 }
 

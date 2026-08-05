@@ -71,10 +71,10 @@ func (tx *Transfer) Verify() bool {
 	return crypto.Verify(&pub, tx.PayloadBytes(), tx.Signature)
 }
 
-// ComputeID generates a unique cryptographic hash identifier string for the transaction instance.
+// ComputeID generates a unique cryptographic hash identifier string for the transaction instance using SHA3-512.
 func (tx *Transfer) ComputeID() string {
-	// Hash the combination of the sender public key and payload bytes to produce a unique transaction ID.
-	hasher := crypto.Hash256(append(tx.SenderPubKey, tx.PayloadBytes()...))
+	// Hash the combination of the sender public key and payload bytes using SHA3-512 to produce a unique transaction ID.
+	hasher := crypto.Hash512(append(tx.SenderPubKey, tx.PayloadBytes()...))
 	// Encode the resulting hash digest into a hexadecimal string representation.
 	return hex.EncodeToString(hasher)
 }

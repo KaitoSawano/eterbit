@@ -28,9 +28,9 @@ func GenerateKey() (*mode3.PublicKey, *mode3.PrivateKey, error) {
 	return dilithium3.GenerateKey()
 }
 
-// Hash256 delegates hashing operations to the sha3 module.
-func Hash256(data []byte) []byte {
-	return sha3.Hash256(data)
+// Hash512 delegates SHA3-512 cryptographic hashing operations to the sha3 module.
+func Hash512(data []byte) []byte {
+	return sha3.Hash512(data)
 }
 
 // PubkeyToAddress derives a custom post-quantum network address string from a Dilithium public key bytes slice.

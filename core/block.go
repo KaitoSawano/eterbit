@@ -40,7 +40,7 @@ type LedgerBlock struct {
 	Nonce      uint64      `json:"nonce"`
 	Difficulty uint32      `json:"difficulty"`
 	Reward     uint64      `json:"reward"`
-	Message    string      `json:"message,omitempty"` // <-- Added pszTimestamp equivalent field
+	Message    string      `json:"message,omitempty"` // Added pszTimestamp equivalent field
 }
 
 // GetBlockReward dynamically computes the block reward using the centralized consensus package.
@@ -73,11 +73,11 @@ func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byt
 		[]byte(strconv.FormatUint(b.Index, 16)),
 		[]byte(strconv.FormatInt(b.Timestamp, 16)),
 		[]byte(strconv.FormatUint(nonce, 16)),
-		[]byte(b.Message), // <-- Include message in PoW hashing calculation
+		[]byte(b.Message), // Include message in PoW hashing calculation
 	}, []byte{})
 }
 
-// Mine executes an iterative proof-of-work search loop, testing candidate nonces until a hash meeting the target difficulty is discovered.
+// Mine executes an iterative proof-of-work search loop using SHA3-512, testing candidate nonces until a hash meeting the target difficulty is discovered.
 func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 	// Preserve the immutable block reward configured and validated by LedgerCore to enforce hard MaxSupply caps.
 	// Fall back to standard block reward calculation exclusively if uninitialized outside genesis bounds.
@@ -86,7 +86,8 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 	}
 
 	var nonce uint64 = 0
-	hasher := sha3.New256()
+	// Initialize SHA3-512 cryptographic hasher for quantum-resistant mining loops
+	hasher := sha3.New512()
 
 	// Iteratively test nonces until a resulting hash satisfies the proof-of-work difficulty requirement.
 	for {
