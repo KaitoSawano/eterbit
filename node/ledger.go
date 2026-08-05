@@ -90,7 +90,7 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 	// Convert raw byte slice hash to hex string format for comparison against the hardcoded checkpoint.
 	genesisHashHex := hex.EncodeToString(genesis.Hash)
 
-	// Strict Bitcoin-grade check: Halt immediately if the database hash or calculated hash drifts from the immutable checkpoint.
+	// Strict checkpoint validation: Halt immediately if the database hash or calculated hash drifts from the immutable checkpoint.
 	if HardcodedGenesisHash != "" && (genesisHashHex != HardcodedGenesisHash || calculatedGenesisHash != HardcodedGenesisHash) {
 		panic(fmt.Sprintf("\n\n[FATAL CONSENSUS PANIC] GENESIS TAMPERING / RULE MISMATCH DETECTED!\n"+
 			"The genesis block or its rules have been modified while an existing database is present!\n"+
@@ -152,7 +152,7 @@ func InitializeLedger(dbPath string, initialDifficulty uint32, minerAddr string)
 	return coreLedger
 }
 
-// LoadFromDisk loads existing blockchain blocks from LevelDB disk storage and rebuilds the account state.
+// LoadFromDisk loads existing blockchain blocks from disk storage and rebuilds the account state.
 func (lc *LedgerCore) LoadFromDisk() bool {
 	// Retrieve the highest committed block height index from the underlying storage database.
 	lastIdx, exists := lc.Storage.GetLastIndex()
@@ -225,7 +225,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 	// Compute the base block reward allocation specifically designated for block index zero.
 	exactReward := CalculateBlockReward(0)
 	
-	// --- GENESIS MESSAGE (pszTimestamp equivalent) ---
+	// --- GENESIS TIMESTAMP MESSAGE ---
 	pszTimestamp := "IND Today 05/Aug/2026 Aldianokto, While banks keep printing Debt, We build an honest Exit"
 
 	genesis := &core.LedgerBlock{
@@ -253,7 +253,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 
 // AddToMempool validates and inserts a transaction payload into the pending mempool queue with Fee Market priority sorting.
 func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
-	// --- STRICT ADDRESS PREFIX VALIDATION (Bitcoin-Grade Protection) ---
+	// --- STRICT ADDRESS PREFIX VALIDATION ---
 	params := consensus.DefaultConsensus()
 	requiredPrefix := params.AddressPrefix // Pure prefix without underscore (e.g., "etrb")
 	if !strings.HasPrefix(tx.Recipient, requiredPrefix) {
@@ -408,7 +408,7 @@ func (lc *LedgerCore) MineBlock() {
 
 	currentTime := time.Now().Unix()
 
-	// Implement Ethereum-style Dynamic Difficulty Adjustment based on elapsed time from parent block.
+	// Implement dynamic difficulty adjustment based on elapsed time from parent block.
 	calculatedDiff := consensus.CalculateNextDifficulty(parent.Timestamp, currentTime, uint64(parent.Difficulty))
 	lc.Engine.TargetDifficulty = uint32(calculatedDiff)
 
