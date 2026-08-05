@@ -26,19 +26,32 @@ import (
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
 const (
-	CoinUnit           uint64 = 100000000           // 8 Decimals precision factor
+	CoinUnit           uint64 = 100000000            // 8 Decimals precision factor
 	MaxSupply          uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
-	BlockReward        uint64 = 50 * CoinUnit       // Initial Mining Reward: 50 Coins per Block
-	HalvingInterval    uint64 = 7850000             // Strict Halving Block Interval
-	DefaultPort        int    = 19333               // Default P2P Network Port
-	BaseDifficulty     uint64 = 1                  // Minimum/Base Target Difficulty Bits
-	TargetBlockTimeSec int64  = 35                  // Target block time in seconds
-	AddressPrefix      string = "etrb"              // Immutable Wallet Address Prefix
+	BlockReward        uint64 = 50 * CoinUnit        // Initial Mining Reward: 50 Coins per Block
+	HalvingInterval    uint64 = 7850000              // Strict Halving Block Interval
+	DefaultPort        int    = 19333                // Default P2P Network Port
+	BaseDifficulty     uint64 = 1                    // Minimum/Base Target Difficulty Bits
+	TargetBlockTimeSec int64  = 35                   // Target block time in seconds
+	AddressPrefix      string = "etrb"               // Immutable Wallet Address Prefix
 
 	// ExpectedGenesisHash stores the immutable hardcoded SHA3-512 hash checkpoint of the Eterbit Genesis block.
 	// Any tampering with the Genesis parameters or message will alter this hash and trigger consensus rejection.
-	ExpectedGenesisHash string = "0"
+	ExpectedGenesisHash string = "00070bc0e8b185ea8e36521ec825f9054a9a5c44cd95b4c189392cbfa935d389cb220f4cc46460134b677a0b33908194e1ae2ed946d9923e201c2a186a5b705e"
 )
+
+// CheckpointData represents a hardcoded historical block height and its immutable cryptographic hash checkpoint.
+type CheckpointData struct {
+	Height uint64
+	Hash   string
+}
+
+// HardcodedCheckpoints stores trusted historical checkpoints to prevent history rewrites and tampering (Bitcoin-style).
+var HardcodedCheckpoints = map[uint64]string{
+	0: ExpectedGenesisHash,
+	// Add future trusted block checkpoints here as the network grows:
+	// 10000: "some_block_hash_hex...",
+}
 
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit blockchain.
 type ConsensusParameters struct {
@@ -124,6 +137,20 @@ func VerifyGenesisCheckpoint(blockHash []byte) error {
 	actualHashHex := hex.EncodeToString(blockHash)
 	if actualHashHex != ExpectedGenesisHash {
 		return fmt.Errorf("CONSENSUS REJECTION: Invalid genesis block hash! Expected checkpoint '%s', got '%s'. Chain rejected due to hardcoded parameter violation.", ExpectedGenesisHash, actualHashHex)
+	}
+	return nil
+}
+
+// VerifyCheckpoint validates any given block height and its hash against the hardcoded historical checkpoints map.
+func VerifyCheckpoint(height uint64, blockHash []byte) error {
+	expectedHash, exists := HardcodedCheckpoints[height]
+	if !exists {
+		return nil // No checkpoint defined for this height, skip verification safely
+	}
+
+	actualHashHex := hex.EncodeToString(blockHash)
+	if actualHashHex != expectedHash {
+		return fmt.Errorf("CONSENSUS REJECTION: Checkpoint mismatch at block height %d! Expected '%s', got '%s'. Chain rejected.", height, expectedHash, actualHashHex)
 	}
 	return nil
 }
