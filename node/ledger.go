@@ -29,8 +29,8 @@ import (
 	"eterbit/storage"
 )
 
-// Hardcoded Genesis Hash checkpoint to strictly prevent unauthorized genesis tampering (Bitcoin-grade protection).
-const HardcodedGenesisHash = ""
+// Hardcoded Genesis Hash checkpoint linked directly to the immutable consensus specifications.
+const HardcodedGenesisHash = consensus.ExpectedGenesisHash
 
 // AccountState represents the account balance and transaction sequence nonce.
 type AccountState struct {
@@ -78,7 +78,7 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 	}
 	genesis := lc.Chain[0]
 
-	// 1. Verify Genesis Hash against the Hardcoded Checkpoint
+	// 1. Verify Genesis Hash against the Hardcoded Consensus Checkpoint
 	calculatedGenesisHash := consensus.ComputeHeaderHash(
 		hex.EncodeToString(genesis.PrevHash),
 		"", // MerkleRoot for genesis is empty
@@ -97,6 +97,11 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 			"Got Invalid Hash:      %s\n"+
 			"Node execution halted immediately to preserve network consensus integrity.\n",
 			HardcodedGenesisHash, genesisHashHex))
+	}
+
+	// Also leverage the centralized consensus verification function for completeness
+	if err := consensus.VerifyGenesisCheckpoint(genesis.Hash); err != nil {
+		panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] %v", err))
 	}
 
 	// 2. Verify Genesis Reward
