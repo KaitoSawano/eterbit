@@ -220,7 +220,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 	exactReward := CalculateBlockReward(0)
 	
 	// --- GENESIS MESSAGE (pszTimestamp equivalent) ---
-	pszTimestamp := "Aldianokto, Keep Your Hidden Fees and Inflated Fiat, We Built an Honest Exit."
+	pszTimestamp := "IND Today 05/Aug/2026 Aldianokto, While banks keep printing Debt, We build an honest Exit"
 
 	genesis := &core.LedgerBlock{
 		Index:      0,
