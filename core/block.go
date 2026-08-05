@@ -18,6 +18,7 @@ package core
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 
 	"eterbit/internal/consensus"
@@ -109,4 +110,41 @@ func (ce *ConsensusEngine) validateHash(hash []byte) bool {
 	hashStr := hex.EncodeToString(hash)
 	// Directly invoke the ValidatePoW function provided by the internal/consensus package.
 	return consensus.ValidatePoW(hashStr, uint64(ce.TargetDifficulty))
+}
+
+// ValidateBlockConsensus performs rigorous validation on a newly mined or received block, including strict MaxSupply enforcement.
+func ValidateBlockConsensus(block *LedgerBlock, parent *LedgerBlock, currentSupply uint64) error {
+	// 1. Validate block index increment and chronological timestamp progression order.
+	if block.Index != parent.Index+1 {
+		return fmt.Errorf("invalid block index: expected %d, got %d", parent.Index+1, block.Index)
+	}
+	if block.Timestamp <= parent.Timestamp {
+		return fmt.Errorf("invalid block timestamp: must be greater than parent timestamp")
+	}
+
+	// 2. Validate cryptographic Proof-of-Work hash against target difficulty constraints.
+	hashStr := hex.EncodeToString(block.Hash)
+	if !consensus.ValidatePoW(hashStr, uint64(block.Difficulty)) {
+		return fmt.Errorf("invalid proof-of-work: hash does not meet difficulty target")
+	}
+
+	// 3. ENFORCE STRICT MACROECONOMIC MAX SUPPLY & REWARD VALIDATION RULES.
+	expectedReward := consensus.CalculateBlockReward(block.Index)
+
+	if currentSupply >= consensus.MaxSupply {
+		if block.Reward != 0 {
+			return fmt.Errorf("consensus violation: reward issued despite MaxSupply cap already reached")
+		}
+	} else if currentSupply+block.Reward > consensus.MaxSupply {
+		allowedMaxReward := consensus.MaxSupply - currentSupply
+		if block.Reward > allowedMaxReward {
+			return fmt.Errorf("consensus violation: block reward exceeds remaining MaxSupply quota")
+		}
+	} else {
+		if block.Reward > expectedReward {
+			return fmt.Errorf("consensus violation: claimed reward exceeds protocol allowed reward")
+		}
+	}
+
+	return nil
 }
