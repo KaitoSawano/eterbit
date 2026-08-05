@@ -31,7 +31,7 @@ const (
 	BlockReward        uint64 = 50 * CoinUnit       // Initial Mining Reward: 50 Coins per Block
 	HalvingInterval    uint64 = 7850000             // Strict Halving Block Interval
 	DefaultPort        int    = 19333               // Default P2P Network Port
-	BaseDifficulty     uint64 = 15                  // Minimum/Base Target Difficulty Bits
+	BaseDifficulty     uint64 = 1                  // Minimum/Base Target Difficulty Bits
 	TargetBlockTimeSec int64  = 35                  // Target block time in seconds
 	AddressPrefix      string = "etrb"              // Immutable Wallet Address Prefix
 
