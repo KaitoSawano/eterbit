@@ -30,7 +30,7 @@ import (
 )
 
 // Hardcoded Genesis Hash checkpoint linked directly to the immutable consensus specifications.
-const HardcodedGenesisHash = "0001a77b043c97b8e43f13c0a2856fe2ecfa1c49ee4105e0fabc9bcbbcb64fcb811ac760dfacdf07bca63c9f87b8b12a524ea83792c7aa9b8041562c02e65677"
+const HardcodedGenesisHash = ""
 
 // AccountState represents the account balance and transaction sequence nonce.
 type AccountState struct {
@@ -398,6 +398,11 @@ func (lc *LedgerCore) MineBlock() {
 	// ----------------------------------------------------
 
 	currentTime := time.Now().Unix()
+	
+	// Ensure timestamp strictly exceeds parent block timestamp to satisfy consensus validation rules.
+	if currentTime <= parent.Timestamp {
+		currentTime = parent.Timestamp + 1
+	}
 
 	// Implement dynamic difficulty adjustment based on elapsed time from parent block.
 	calculatedDiff := consensus.CalculateNextDifficulty(parent.Timestamp, currentTime, uint64(parent.Difficulty))
