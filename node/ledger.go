@@ -105,6 +105,16 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 			"Node execution halted immediately to preserve network consensus integrity.",
 			genesis.Reward, expectedGenesisReward))
 	}
+
+	// STRICT MACROECONOMIC STARTUP CHECK: 
+	// Ensure existing stored circulating supply does not violate the active hard-coded MaxSupply constraint.
+	totalStoredSupply := lc.GetTotalCirculatingSupply()
+	if totalStoredSupply > consensus.MaxSupply {
+		panic(fmt.Sprintf("\n\n[FATAL CONSENSUS PANIC] MACROECONOMIC RULE VIOLATION!\n"+
+			"Total stored circulating supply (%.8f) exceeds current code MaxSupply limit (%.8f)!\n"+
+			"Node execution halted immediately to prevent structural corruption.",
+			formatCoin(totalStoredSupply), formatCoin(consensus.MaxSupply)))
+	}
 }
 
 // InitializeLedger initializes or loads the local ledger database state from the specified storage path.
