@@ -30,7 +30,7 @@ import (
 )
 
 // Hardcoded Genesis Hash checkpoint linked directly to the immutable consensus specifications.
-const HardcodedGenesisHash = ""
+const HardcodedGenesisHash = "00070bc0e8b185ea8e36521ec825f9054a9a5c44cd95b4c189392cbfa935d389cb220f4cc46460134b677a0b33908194e1ae2ed946d9923e201c2a186a5b705e"
 
 // AccountState represents the account balance and transaction sequence nonce.
 type AccountState struct {
@@ -71,7 +71,7 @@ func (lc *LedgerCore) GetTotalCirculatingSupply() uint64 {
 }
 
 // VerifyConsensusIntegrity performs a cryptographic and macroeconomic check against the genesis block 
-// to ensure local consensus parameters have not been unlawfully altered after storage initialization.
+// and trusted checkpoints to ensure local consensus parameters have not been unlawfully altered after storage initialization.
 func (lc *LedgerCore) VerifyConsensusIntegrity() {
 	if len(lc.Chain) == 0 {
 		return
@@ -94,6 +94,13 @@ func (lc *LedgerCore) VerifyConsensusIntegrity() {
 	// Also leverage the centralized consensus verification function for completeness.
 	if err := consensus.VerifyGenesisCheckpoint(genesis.Hash); err != nil {
 		panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] %v", err))
+	}
+
+	// Iterate through all loaded blocks and validate them against Bitcoin-style hardcoded checkpoints.
+	for i, block := range lc.Chain {
+		if err := consensus.VerifyCheckpoint(uint64(i), block.Hash); err != nil {
+			panic(fmt.Sprintf("\n[FATAL CONSENSUS PANIC] %v", err))
+		}
 	}
 
 	// Verify macroeconomic genesis reward invariants against the trusted calculation engine.
