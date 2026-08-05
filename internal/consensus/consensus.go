@@ -35,6 +35,7 @@ const (
 	HalvingInterval    uint64 = 7850000               // Strict Halving Block Interval
 	DefaultPort        int    = 19333                 // Default P2P Network Port
 	AddressPrefix      string = "etrb"                // Immutable Wallet Address Prefix
+	GenesisBits        uint32 = 0x1e0ffff0            // Compact difficulty bits representation ala Bitcoin Core
 
 	// Proof-of-Work Target Parameters
 	PowTargetTimespan  int64  = 2 * 24 * 60 * 60 // Difficulty adjustment span (e.g., 2 Days)
@@ -61,6 +62,7 @@ var HardcodedCheckpoints = map[uint64]string{
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit ledger.
 type ConsensusParameters struct {
 	DifficultyBits    uint64 // Target difficulty level / factor
+	GenesisBits       uint32 // Compact difficulty bits representation
 	BlockReward       uint64 // Initial minting reward per block (with 8 decimals precision)
 	MaxSupply         uint64 // Maximum cap for token issuance (with 8 decimals precision)
 	HalvingInterval   uint64 // Interval blocks for halving
@@ -73,7 +75,8 @@ type ConsensusParameters struct {
 // DefaultConsensus returns the standard operational consensus rules for Eterbit using PoWLimit baseline.
 func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
-		DifficultyBits:    1, // Initial baseline factor multiplier
+		DifficultyBits:    1,             // Initial baseline factor multiplier
+		GenesisBits:       GenesisBits,   // Compact target bits
 		BlockReward:       BlockReward,
 		MaxSupply:         MaxSupply,
 		HalvingInterval:   HalvingInterval,
