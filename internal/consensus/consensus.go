@@ -18,6 +18,7 @@ package consensus
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"golang.org/x/crypto/sha3"
@@ -25,14 +26,18 @@ import (
 
 // Immutable Network & Macroeconomic Constants (Hardcoded Rules - Cannot be altered arbitrarily)
 const (
-	CoinUnit           uint64 = 100000000         // 8 Decimals precision factor
+	CoinUnit           uint64 = 100000000           // 8 Decimals precision factor
 	MaxSupply          uint64 = 785000000 * CoinUnit // Fixed Maximum Cap: 785 Million Coins
-	BlockReward        uint64 = 50 * CoinUnit     // Initial Mining Reward: 50 Coins per Block
-	HalvingInterval    uint64 = 7850000           // Strict Halving Block Interval
-	DefaultPort        int    = 19333             // Default P2P Network Port
-	BaseDifficulty     uint64 = 15                // Minimum/Base Target Difficulty Bits
-	TargetBlockTimeSec int64  = 35                // Target block time in seconds
-	AddressPrefix      string = "etrb"            // Immutable Wallet Address Prefix
+	BlockReward        uint64 = 50 * CoinUnit       // Initial Mining Reward: 50 Coins per Block
+	HalvingInterval    uint64 = 7850000             // Strict Halving Block Interval
+	DefaultPort        int    = 19333               // Default P2P Network Port
+	BaseDifficulty     uint64 = 15                  // Minimum/Base Target Difficulty Bits
+	TargetBlockTimeSec int64  = 35                  // Target block time in seconds
+	AddressPrefix      string = "etrb"              // Immutable Wallet Address Prefix
+
+	// ExpectedGenesisHash stores the immutable hardcoded SHA3-512 hash checkpoint of the Eterbit Genesis block.
+	// Any tampering with the Genesis parameters or message will alter this hash and trigger consensus rejection.
+	ExpectedGenesisHash string = "0"
 )
 
 // ConsensusParameters defines the fixed macroeconomic and mathematical rules for the Eterbit blockchain.
@@ -112,6 +117,15 @@ func ComputeHeaderHash(prevHash string, merkleRoot string, timestamp int64, nonc
 
 	hash := sha3.Sum512(record)
 	return hex.EncodeToString(hash[:])
+}
+
+// VerifyGenesisCheckpoint rigorously evaluates whether a given block hash matches the immutable protocol genesis checkpoint.
+func VerifyGenesisCheckpoint(blockHash []byte) error {
+	actualHashHex := hex.EncodeToString(blockHash)
+	if actualHashHex != ExpectedGenesisHash {
+		return fmt.Errorf("CONSENSUS REJECTION: Invalid genesis block hash! Expected checkpoint '%s', got '%s'. Chain rejected due to hardcoded parameter violation.", ExpectedGenesisHash, actualHashHex)
+	}
+	return nil
 }
 
 // createTargetPrefix generates the required leading zero pattern based on the difficulty level.
